@@ -1599,7 +1599,7 @@ class SessionManager {
 
     for (const [sessionId, session] of this.sessions.entries()) {
       const { state } = session;
-      if (state.status !== GameStatus.PLAYING || !state.maze || state.pendingReset) {
+      if (state.status !== GameStatus.PLAYING || !state.maze || state.pendingReset || state.maze.reached) {
         continue;
       }
 

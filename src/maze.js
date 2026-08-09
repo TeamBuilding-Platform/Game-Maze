@@ -493,8 +493,8 @@ function findLifeAt(maze, row, col) {
 }
 
 function moveGhosts(maze) {
-  if (!maze || !Array.isArray(maze.ghosts) || !maze.ghosts.length) {
-    return [];
+  if (!maze || maze.reached || !Array.isArray(maze.ghosts) || !maze.ghosts.length || !maze.playerPos) {
+    return { moves: [], chaseStateChanged: false };
   }
 
   const moves = [];
