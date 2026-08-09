@@ -498,7 +498,9 @@ function moveGhosts(maze) {
   }
 
   const moves = [];
+  const previousChaseStates = new Map();
   for (const ghost of maze.ghosts) {
+    previousChaseStates.set(ghost.id, Boolean(ghost.isChasing));
     const path = findPath(
       maze.cells,
       maze.height,
@@ -536,7 +538,12 @@ function moveGhosts(maze) {
 
   updateGhostChaseStates(maze);
 
-  return moves;
+  const chaseStateChanged = Array.from(previousChaseStates.entries()).some(([ghostId, wasChasing]) => {
+    const ghost = maze.ghosts.find((entry) => entry.id === ghostId);
+    return ghost ? Boolean(ghost.isChasing) !== wasChasing : false;
+  });
+
+  return { moves, chaseStateChanged };
 }
 
 function findGhostAt(maze, row, col) {

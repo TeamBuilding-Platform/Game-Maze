@@ -1603,15 +1603,19 @@ class SessionManager {
         continue;
       }
 
-      const ghostMoves = moveGhosts(state.maze);
-      if (!ghostMoves.length) {
+      const ghostTick = moveGhosts(state.maze);
+      const ghostMoves = ghostTick.moves;
+      const shouldBroadcastGhostState = ghostTick.chaseStateChanged || ghostMoves.length > 0;
+      if (!shouldBroadcastGhostState) {
         continue;
       }
 
-      appendLog(state, {
-        event: 'ghost_move',
-        ghostMoves,
-      });
+      if (ghostMoves.length) {
+        appendLog(state, {
+          event: 'ghost_move',
+          ghostMoves,
+        });
+      }
 
       const ghostAtPlayer = findGhostAt(state.maze, state.maze.playerPos.row, state.maze.playerPos.col);
       if (ghostAtPlayer) {
