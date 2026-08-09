@@ -24,9 +24,13 @@ export function GuideView({ roleData, summary, onSendInput, status }) {
           </div>
         </div>
         <div className="flex items-center gap-3 text-xs text-slate-300">
-          <div className="flex items-center gap-1 bg-purple-950/60 border border-purple-800/50 px-2 py-1 rounded-lg">
-            <Ghost className="w-3.5 h-3.5 text-purple-400" />
-            <span>{ghosts.length} Ghosts</span>
+          <div className={`flex items-center gap-1 border px-2 py-1 rounded-lg transition-colors ${
+            ghosts.some((g) => g.isChasing)
+              ? 'bg-rose-950/80 border-rose-600/80 text-rose-300 animate-pulse'
+              : 'bg-purple-950/60 border-purple-800/50 text-slate-300'
+          }`}>
+            <Ghost className={`w-3.5 h-3.5 ${ghosts.some((g) => g.isChasing) ? 'text-rose-400' : 'text-purple-400'}`} />
+            <span>{ghosts.length} Ghosts {ghosts.some((g) => g.isChasing) ? '• CHASING' : ''}</span>
           </div>
           <div className="flex items-center gap-1 bg-rose-950/60 border border-rose-800/50 px-2 py-1 rounded-lg">
             <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />

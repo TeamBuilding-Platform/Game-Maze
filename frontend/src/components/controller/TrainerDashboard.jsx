@@ -703,9 +703,13 @@ export function TrainerDashboard({ stateSync, onSend }) {
           <div className="w-full mt-4 pt-3 border-t border-slate-800 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Facilitator Interventions</span>
-              <span className="text-[11px] text-purple-300 font-semibold flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-950/60 border border-purple-800/60">
-                <Ghost className="w-3.5 h-3.5 text-purple-400" />
-                <span>Active Ghosts: {trainerMaze?.ghosts?.length || 0}</span>
+              <span className={`text-[11px] font-semibold flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-colors ${
+                (trainerMaze?.ghosts || []).some((g) => g.isChasing)
+                  ? 'text-rose-300 bg-rose-950/80 border-rose-600/80 animate-pulse'
+                  : 'text-purple-300 bg-purple-950/60 border-purple-800/60'
+              }`}>
+                <Ghost className={`w-3.5 h-3.5 ${(trainerMaze?.ghosts || []).some((g) => g.isChasing) ? 'text-rose-400' : 'text-purple-400'}`} />
+                <span>Active Ghosts: {trainerMaze?.ghosts?.length || 0} {(trainerMaze?.ghosts || []).some((g) => g.isChasing) ? '• Chasing' : ''}</span>
               </span>
             </div>
 

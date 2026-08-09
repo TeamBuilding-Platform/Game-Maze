@@ -1837,4 +1837,22 @@ test('trainer can introduce and remove ghosts dynamically during playing session
   assert.ok(session.state.log.some((e) => e.event === 'trainer_remove_ghost'));
 });
 
+test('ghost isChasing state evaluates accurately based on proximity to player', () => {
+  const { generateMaze, updateGhostChaseStates } = require('../src/maze');
+  const maze = generateMaze(7, 7, 0, 0, 0, { ghostCount: 0 });
+  maze.playerPos = { row: 0, col: 0 };
+  maze.ghosts = [
+    { id: 'g-near', row: 0, col: 2 }, // within range 5
+    { id: 'g-far', row: 6, col: 6 },  // outside range 5
+  ];
+
+  updateGhostChaseStates(maze);
+
+  const nearGhost = maze.ghosts.find((g) => g.id === 'g-near');
+  const farGhost = maze.ghosts.find((g) => g.id === 'g-far');
+
+  assert.equal(nearGhost.isChasing, true);
+  assert.equal(farGhost.isChasing, false);
+});
+
 

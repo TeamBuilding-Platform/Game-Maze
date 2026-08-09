@@ -197,19 +197,30 @@ export function GridCanvas({
               existing.row += dRow * 0.22
               existing.col += dCol * 0.22
 
-              // Emit eerie purple particle trail while actively moving
-              if (Math.random() < 0.4) {
+              // Emit particle trail while actively moving (red if chasing, purple if roaming)
+              if (Math.random() < 0.5) {
                 particles.push({
                   row: existing.row,
                   col: existing.col,
-                  alpha: 0.6,
-                  size: 0.18,
-                  color: '#a855f7',
+                  alpha: 0.65,
+                  size: g.isChasing ? 0.22 : 0.18,
+                  color: g.isChasing ? '#ef4444' : '#a855f7',
                 })
               }
             } else {
               existing.row = g.row
               existing.col = g.col
+
+              // Emit alert embers even when standing still if actively chasing player
+              if (g.isChasing && Math.random() < 0.15) {
+                particles.push({
+                  row: existing.row + (Math.random() - 0.5) * 0.4,
+                  col: existing.col + (Math.random() - 0.5) * 0.4,
+                  alpha: 0.5,
+                  size: 0.15,
+                  color: '#f43f5e',
+                })
+              }
             }
           }
         })
@@ -356,24 +367,56 @@ export function GridCanvas({
         }
       }
 
-      // 7. Draw Ghosts with Floating Motion & Eerie Glow
+      // 7. Draw Ghosts with Floating Motion & Eerie Glow / Chasing Tell
       if (ghosts && Array.isArray(ghosts)) {
         ghosts.forEach((g, idx) => {
           const animPos = (g.id && animGhostsPosRef.current && animGhostsPosRef.current[g.id]) || g
           if (!isVisible(Math.round(animPos.row), Math.round(animPos.col))) return
-          const floatOffset = Math.sin(tSec * 4 + idx * 1.5) * 3
+
+          const isChasing = Boolean(g.isChasing)
+          const floatSpeed = isChasing ? 8 : 4
+          const floatOffset = Math.sin(tSec * floatSpeed + idx * 1.5) * (isChasing ? 4.5 : 3)
           const cx = animPos.col * cellSize + cellSize / 2
           const cy = animPos.row * cellSize + cellSize / 2 + floatOffset
           const r = cellSize * 0.38
 
-          // Eerie purple glow
-          const ghostGlow = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r + 8)
-          ghostGlow.addColorStop(0, 'rgba(168, 85, 247, 0.7)')
-          ghostGlow.addColorStop(1, 'transparent')
-          ctx.fillStyle = ghostGlow
-          ctx.beginPath()
-          ctx.arc(cx, cy, r + 8, 0, Math.PI * 2)
-          ctx.fill()
+          if (isChasing) {
+            // Aggressive pulsing red aura for chasing ghosts
+            const pulse = Math.sin(tSec * 10 + idx) * 3
+            const ghostGlow = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r + 12 + pulse)
+            ghostGlow.addColorStop(0, 'rgba(239, 68, 68, 0.95)')
+            ghostGlow.addColorStop(0.5, 'rgba(225, 29, 72, 0.6)')
+            ghostGlow.addColorStop(1, 'transparent')
+            ctx.fillStyle = ghostGlow
+            ctx.beginPath()
+            ctx.arc(cx, cy, r + 12 + pulse, 0, Math.PI * 2)
+            ctx.fill()
+
+            // Rotating warning targeting ring
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)'
+            ctx.lineWidth = 2
+            ctx.setLineDash([4, 4])
+            ctx.beginPath()
+            ctx.arc(cx, cy, r + 9 + pulse, tSec * 2, tSec * 2 + Math.PI * 2)
+            ctx.stroke()
+            ctx.setLineDash([])
+
+            // Floating alert indicator above ghost
+            ctx.fillStyle = '#ef4444'
+            ctx.font = `bold ${Math.max(11, cellSize * 0.5)}px sans-serif`
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillText('❗', cx, cy - r - 8 - Math.sin(tSec * 12) * 2)
+          } else {
+            // Eerie purple glow for roaming ghosts
+            const ghostGlow = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r + 8)
+            ghostGlow.addColorStop(0, 'rgba(168, 85, 247, 0.7)')
+            ghostGlow.addColorStop(1, 'transparent')
+            ctx.fillStyle = ghostGlow
+            ctx.beginPath()
+            ctx.arc(cx, cy, r + 8, 0, Math.PI * 2)
+            ctx.fill()
+          }
 
           ctx.fillStyle = '#ffffff'
           ctx.font = `bold ${Math.max(12, cellSize * 0.65)}px sans-serif`

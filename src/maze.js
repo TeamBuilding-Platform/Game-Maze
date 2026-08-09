@@ -399,7 +399,7 @@ const occupiedSet = new Set([
     }
   }
 
-  return {
+  const maze = {
     seed: randomId(),
     layoutVariant,
     hardMode,
@@ -415,6 +415,33 @@ const occupiedSet = new Set([
     reached: false,
     hitHazards: 0,
   };
+
+  updateGhostChaseStates(maze);
+
+  return maze;
+}
+
+function updateGhostChaseStates(maze) {
+  if (!maze || !Array.isArray(maze.ghosts) || !maze.ghosts.length || !maze.playerPos) {
+    return;
+  }
+  for (const ghost of maze.ghosts) {
+    const path = findPath(
+      maze.cells,
+      maze.height,
+      maze.width,
+      ghost.row,
+      ghost.col,
+      maze.playerPos.row,
+      maze.playerPos.col
+    );
+    if (path && path.length >= 2) {
+      const distanceToPlayer = path.length - 1;
+      ghost.isChasing = distanceToPlayer <= GHOST_CHASE_RANGE_CELLS;
+    } else {
+      ghost.isChasing = false;
+    }
+  }
 }
 
 /**
@@ -442,10 +469,12 @@ function movePlayer(maze, dir) {
   maze.playerPos = { row: nr, col: nc };
 
   if (nr === maze.goal.row && nc === maze.goal.col) {
-   maze.reached = true;
-   return { result: 'goal', from: { row, col }, to: { row: nr, col: nc } };
+    maze.reached = true;
+    updateGhostChaseStates(maze);
+    return { result: 'goal', from: { row, col }, to: { row: nr, col: nc } };
   }
 
+  updateGhostChaseStates(maze);
   return { result: 'ok', from: { row, col }, to: { row: nr, col: nc } };
 }
 
@@ -476,6 +505,7 @@ function moveGhosts(maze) {
     if (path && path.length >= 2) {
       const distanceToPlayer = path.length - 1;
       if (distanceToPlayer > GHOST_CHASE_RANGE_CELLS) {
+        ghost.isChasing = false;
         const roamDirs = shuffle([...DIRS]).filter((dir) => !maze.cells[ghost.row][ghost.col].walls[dir]);
         if (!roamDirs.length) {
           continue;
@@ -488,12 +518,17 @@ function moveGhosts(maze) {
         moves.push({ id: ghost.id, row: ghost.row, col: ghost.col });
         continue;
       }
+      ghost.isChasing = true;
       const next = path[1];
       ghost.row = next.row;
       ghost.col = next.col;
       moves.push({ id: ghost.id, row: ghost.row, col: ghost.col });
+    } else {
+      ghost.isChasing = false;
     }
   }
+
+  updateGhostChaseStates(maze);
 
   return moves;
 }
@@ -547,6 +582,7 @@ function spawnGhost(maze) {
   };
 
   maze.ghosts.push(ghost);
+  updateGhostChaseStates(maze);
   return ghost;
 }
 
@@ -554,7 +590,9 @@ function despawnGhost(maze) {
   if (!maze || !Array.isArray(maze.ghosts) || maze.ghosts.length === 0) {
     return null;
   }
-  return maze.ghosts.pop();
+  const removed = maze.ghosts.pop();
+  updateGhostChaseStates(maze);
+  return removed;
 }
 
-module.exports = { generateMaze, movePlayer, moveGhosts, findKeyAt, findLifeAt, findGhostAt, spawnGhost, despawnGhost };
+module.exports = { generateMaze, movePlayer, moveGhosts, findKeyAt, findLifeAt, findGhostAt, spawnGhost, despawnGhost, updateGhostChaseStates };
