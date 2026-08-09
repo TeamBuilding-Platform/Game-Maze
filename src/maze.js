@@ -17,6 +17,12 @@ const DELTA = { n: [-1, 0], s: [1, 0], e: [0, 1], w: [0, -1] };
 const DIRS = ['n', 'e', 's', 'w'];
 const GHOST_CHASE_RANGE_CELLS = 4;
 
+function getGhostDistanceToPlayer(ghostRow, ghostCol, playerRow, playerCol) {
+  // Use visible tile distance so the 4-cell chase range is consistent on the board,
+  // regardless of how many turns the maze path needs.
+  return Math.abs(playerRow - ghostRow) + Math.abs(playerCol - ghostCol);
+}
+
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -436,7 +442,7 @@ function updateGhostChaseStates(maze) {
       maze.playerPos.col
     );
     if (path && path.length >= 2) {
-      const distanceToPlayer = path.length - 1;
+      const distanceToPlayer = getGhostDistanceToPlayer(ghost.row, ghost.col, maze.playerPos.row, maze.playerPos.col);
       ghost.isChasing = distanceToPlayer <= GHOST_CHASE_RANGE_CELLS;
     } else {
       ghost.isChasing = false;
@@ -503,7 +509,7 @@ function moveGhosts(maze) {
       maze.playerPos.col
     );
     if (path && path.length >= 2) {
-      const distanceToPlayer = path.length - 1;
+      const distanceToPlayer = getGhostDistanceToPlayer(ghost.row, ghost.col, maze.playerPos.row, maze.playerPos.col);
       if (distanceToPlayer > GHOST_CHASE_RANGE_CELLS) {
         ghost.isChasing = false;
         const roamDirs = shuffle([...DIRS]).filter((dir) => !maze.cells[ghost.row][ghost.col].walls[dir]);

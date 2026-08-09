@@ -1843,15 +1843,21 @@ test('ghost isChasing state evaluates accurately based on proximity to player', 
   maze.playerPos = { row: 0, col: 0 };
   maze.ghosts = [
     { id: 'g-near', row: 0, col: 2 }, // distance 2 <= 4 tiles
+    { id: 'g-at-threshold', row: 0, col: 4 }, // distance 4 <= 4 tiles
+    { id: 'g-beyond-threshold', row: 0, col: 5 }, // distance 5 > 4 tiles
     { id: 'g-far', row: 6, col: 6 },  // distance > 4 tiles
   ];
 
   updateGhostChaseStates(maze);
 
   const nearGhost = maze.ghosts.find((g) => g.id === 'g-near');
+  const thresholdGhost = maze.ghosts.find((g) => g.id === 'g-at-threshold');
+  const beyondThresholdGhost = maze.ghosts.find((g) => g.id === 'g-beyond-threshold');
   const farGhost = maze.ghosts.find((g) => g.id === 'g-far');
 
   assert.equal(nearGhost.isChasing, true);
+  assert.equal(thresholdGhost.isChasing, true);
+  assert.equal(beyondThresholdGhost.isChasing, false);
   assert.equal(farGhost.isChasing, false);
 });
 
