@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { MessageType, GameStatus, GameMode, ClientRole, MazeRole, ErrorCode } = require('./protocol');
-const { movePlayer, moveGhosts, findKeyAt, findLifeAt, findGhostAt } = require('./maze');
+const { movePlayer, moveGhosts, findKeyAt, findLifeAt, findGhostAt, spawnGhost, despawnGhost } = require('./maze');
 const { getRoleOrder, shufflePlayers } = require('./roles/roleAssignments');
 const { createSummaryState, createTimerState } = require('./gameplay/stateSchema');
 const { createPhaseFlowState, makeInitialState, createRoundMaze } = require('./gameplay/sessionStateFactory');
@@ -1842,6 +1842,77 @@ class SessionManager {
       return true;
     }
 
+    if (isTrainer && input?.action === 'trainer_introduce_ghost') {
+      if (state.status !== GameStatus.PLAYING || !state.maze) {
+        appendLog(state, {
+          ts,
+          event: 'input_rejected',
+          playerId,
+          reason: 'not_playing',
+        });
+        this.broadcastState(sessionId);
+        return false;
+      }
+
+      const ghost = spawnGhost(state.maze);
+      if (ghost) {
+        appendLog(state, {
+          ts,
+          event: 'trainer_introduce_ghost',
+          playerId,
+          trainerName: controller.name,
+          ghostId: ghost.id,
+          position: { row: ghost.row, col: ghost.col },
+          activeGhosts: state.maze.ghosts.length,
+        });
+      } else {
+        appendLog(state, {
+          ts,
+          event: 'input_rejected',
+          playerId,
+          reason: 'grid_full',
+        });
+      }
+
+      this.broadcastState(sessionId);
+      return true;
+    }
+
+    if (isTrainer && input?.action === 'trainer_remove_ghost') {
+      if (state.status !== GameStatus.PLAYING || !state.maze) {
+        appendLog(state, {
+          ts,
+          event: 'input_rejected',
+          playerId,
+          reason: 'not_playing',
+        });
+        this.broadcastState(sessionId);
+        return false;
+      }
+
+      const removed = despawnGhost(state.maze);
+      if (removed) {
+        appendLog(state, {
+          ts,
+          event: 'trainer_remove_ghost',
+          playerId,
+          trainerName: controller.name,
+          removedGhostId: removed.id,
+          activeGhosts: state.maze.ghosts.length,
+        });
+      } else {
+        appendLog(state, {
+          ts,
+          event: 'input_rejected',
+          playerId,
+          reason: 'no_active_ghosts',
+        });
+      }
+
+      this.broadcastState(sessionId);
+      return true;
+    }
+
     if (state.status !== GameStatus.PLAYING) {
       appendLog(state, {
         ts,
@@ -1952,6 +2023,14 @@ class SessionManager {
     }
 
     const position = clonePoint(maze.playerPos);
+
+    const ghostAtPlayer = position ? findGhostAt(maze, position.row, position.col) : null;
+    if (ghostAtPlayer) {
+      applyGhostHazard(state, ghostAtPlayer);
+      this._applyResetFeedback(sessionId, 'ghost', { row: ghostAtPlayer.row, col: ghostAtPlayer.col }, input?.dir);
+      return true;
+    }
+
     const key = position ? findKeyAt(maze, position.row, position.col) : null;
 
     if (key) {

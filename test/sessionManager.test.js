@@ -1812,3 +1812,29 @@ test('persisted session can reattach a display without losing state', (t) => {
   assert.equal(replacementDisplay.sent.at(-1).state.summary.keysCollected, 2);
   assert.equal(replacementDisplay.sent.at(-1).state.displayConnected, true);
 });
+
+test('trainer can introduce and remove ghosts dynamically during playing session', () => {
+  const { manager, trainer, sessionId } = bootstrapGame(2);
+  const trainerId = registerPlayerId(trainer);
+
+  const session = manager.sessions.get(sessionId);
+  assert.equal(session.state.maze.ghosts.length, 0);
+
+  // Trainer introduces a ghost
+  const addResult = manager.handleInput(sessionId, trainerId, { action: 'trainer_introduce_ghost' });
+  assert.equal(addResult, true);
+  assert.equal(session.state.maze.ghosts.length, 1);
+  assert.ok(session.state.log.some((e) => e.event === 'trainer_introduce_ghost'));
+
+  // Trainer introduces a second ghost
+  manager.handleInput(sessionId, trainerId, { action: 'trainer_introduce_ghost' });
+  assert.equal(session.state.maze.ghosts.length, 2);
+
+  // Trainer removes a ghost
+  const removeResult = manager.handleInput(sessionId, trainerId, { action: 'trainer_remove_ghost' });
+  assert.equal(removeResult, true);
+  assert.equal(session.state.maze.ghosts.length, 1);
+  assert.ok(session.state.log.some((e) => e.event === 'trainer_remove_ghost'));
+});
+
+

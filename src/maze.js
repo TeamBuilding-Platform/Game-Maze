@@ -499,7 +499,62 @@ function moveGhosts(maze) {
 }
 
 function findGhostAt(maze, row, col) {
+  if (!maze || !Array.isArray(maze.ghosts)) return null;
   return maze.ghosts.find((ghost) => ghost.row === row && ghost.col === col) || null;
 }
 
-module.exports = { generateMaze, movePlayer, moveGhosts, findKeyAt, findLifeAt, findGhostAt };
+function spawnGhost(maze) {
+  if (!maze) return null;
+  if (!Array.isArray(maze.ghosts)) {
+    maze.ghosts = [];
+  }
+
+  const occupiedSet = new Set([
+    cellKey(maze.playerPos.row, maze.playerPos.col),
+    cellKey(maze.goal.row, maze.goal.col),
+    ...(maze.hazards || []).map((h) => cellKey(h.row, h.col)),
+    ...(maze.keys || []).map((k) => cellKey(k.row, k.col)),
+    ...(maze.lifePickups || []).map((l) => cellKey(l.row, l.col)),
+    ...maze.ghosts.map((g) => cellKey(g.row, g.col)),
+  ]);
+
+  const candidates = [];
+  for (let r = 0; r < maze.height; r++) {
+    for (let c = 0; c < maze.width; c++) {
+      if (!occupiedSet.has(cellKey(r, c))) {
+        candidates.push({ row: r, col: c });
+      }
+    }
+  }
+
+  if (candidates.length === 0) return null;
+
+  const scored = candidates.map((cell) => {
+    const dist = Math.abs(cell.row - maze.playerPos.row) + Math.abs(cell.col - maze.playerPos.col);
+    return { cell, dist };
+  });
+
+  scored.sort((a, b) => b.dist - a.dist);
+  const maxDist = scored[0].dist;
+  const farCandidates = scored.filter((s) => s.dist >= Math.max(3, maxDist - 2)).map((s) => s.cell);
+  const chosenList = farCandidates.length > 0 ? farCandidates : candidates;
+  const chosen = chosenList[Math.floor(Math.random() * chosenList.length)];
+
+  const ghost = {
+    id: `ghost-${maze.ghosts.length + 1}-${randomId()}`,
+    row: chosen.row,
+    col: chosen.col,
+  };
+
+  maze.ghosts.push(ghost);
+  return ghost;
+}
+
+function despawnGhost(maze) {
+  if (!maze || !Array.isArray(maze.ghosts) || maze.ghosts.length === 0) {
+    return null;
+  }
+  return maze.ghosts.pop();
+}
+
+module.exports = { generateMaze, movePlayer, moveGhosts, findKeyAt, findLifeAt, findGhostAt, spawnGhost, despawnGhost };
