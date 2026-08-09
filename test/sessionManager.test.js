@@ -1842,8 +1842,8 @@ test('ghost isChasing state evaluates accurately based on proximity to player', 
   const maze = generateMaze(7, 7, 0, 0, 0, { ghostCount: 0 });
   maze.playerPos = { row: 0, col: 0 };
   maze.ghosts = [
-    { id: 'g-near', row: 0, col: 2 }, // within range 5
-    { id: 'g-far', row: 6, col: 6 },  // outside range 5
+    { id: 'g-near', row: 0, col: 2 }, // distance 2 <= 4 tiles
+    { id: 'g-far', row: 6, col: 6 },  // distance > 4 tiles
   ];
 
   updateGhostChaseStates(maze);

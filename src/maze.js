@@ -15,7 +15,7 @@ const crypto = require('crypto');
 const OPPOSITE = { n: 's', s: 'n', e: 'w', w: 'e' };
 const DELTA = { n: [-1, 0], s: [1, 0], e: [0, 1], w: [0, -1] };
 const DIRS = ['n', 'e', 's', 'w'];
-const GHOST_CHASE_RANGE_CELLS = 7;
+const GHOST_CHASE_RANGE_CELLS = 4;
 
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
