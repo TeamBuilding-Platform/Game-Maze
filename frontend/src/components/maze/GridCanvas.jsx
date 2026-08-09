@@ -24,6 +24,7 @@ export function GridCanvas({
 }) {
   const canvasRef = useRef(null)
   const animPlayerPosRef = useRef(null)
+  const animGhostsPosRef = useRef({})
   const propsRef = useRef({})
   const prevKeysCollectedRef = useRef(keysCollected)
   const prevReachedRef = useRef(reached)
@@ -163,6 +164,55 @@ export function GridCanvas({
             animPlayerPosRef.current.col = playerPos.col
           }
         }
+      }
+
+      // 1B. Smooth Interpolation of Ghost Positions
+      if (ghosts && Array.isArray(ghosts)) {
+        const currentGhostIds = new Set(ghosts.map((g) => g.id))
+
+        if (animGhostsPosRef.current) {
+          Object.keys(animGhostsPosRef.current).forEach((id) => {
+            if (!currentGhostIds.has(id)) {
+              delete animGhostsPosRef.current[id]
+            }
+          })
+        } else {
+          animGhostsPosRef.current = {}
+        }
+
+        ghosts.forEach((g) => {
+          if (!g || !g.id) return
+          const existing = animGhostsPosRef.current[g.id]
+          if (!existing) {
+            animGhostsPosRef.current[g.id] = { row: g.row, col: g.col }
+          } else {
+            const dRow = g.row - existing.row
+            const dCol = g.col - existing.col
+            const dist = Math.hypot(dRow, dCol)
+
+            if (dist > 2.5) {
+              // Teleport / Snap on spawn or reset
+              animGhostsPosRef.current[g.id] = { row: g.row, col: g.col }
+            } else if (dist > 0.001) {
+              existing.row += dRow * 0.22
+              existing.col += dCol * 0.22
+
+              // Emit eerie purple particle trail while actively moving
+              if (Math.random() < 0.4) {
+                particles.push({
+                  row: existing.row,
+                  col: existing.col,
+                  alpha: 0.6,
+                  size: 0.18,
+                  color: '#a855f7',
+                })
+              }
+            } else {
+              existing.row = g.row
+              existing.col = g.col
+            }
+          }
+        })
       }
 
       // 2. High-DPI Retina Canvas Resizing
@@ -309,10 +359,11 @@ export function GridCanvas({
       // 7. Draw Ghosts with Floating Motion & Eerie Glow
       if (ghosts && Array.isArray(ghosts)) {
         ghosts.forEach((g, idx) => {
-          if (!isVisible(g.row, g.col)) return
+          const animPos = (g.id && animGhostsPosRef.current && animGhostsPosRef.current[g.id]) || g
+          if (!isVisible(Math.round(animPos.row), Math.round(animPos.col))) return
           const floatOffset = Math.sin(tSec * 4 + idx * 1.5) * 3
-          const cx = g.col * cellSize + cellSize / 2
-          const cy = g.row * cellSize + cellSize / 2 + floatOffset
+          const cx = animPos.col * cellSize + cellSize / 2
+          const cy = animPos.row * cellSize + cellSize / 2 + floatOffset
           const r = cellSize * 0.38
 
           // Eerie purple glow
@@ -414,7 +465,7 @@ export function GridCanvas({
         if (isVisible(Math.round(p.row), Math.round(p.col))) {
           const cx = p.col * cellSize + cellSize / 2
           const cy = p.row * cellSize + cellSize / 2
-          ctx.fillStyle = accentColor
+          ctx.fillStyle = p.color || accentColor
           ctx.globalAlpha = Math.max(0, p.alpha)
           ctx.beginPath()
           ctx.arc(cx, cy, cellSize * p.size, 0, Math.PI * 2)
