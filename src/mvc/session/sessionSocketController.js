@@ -250,7 +250,7 @@ function createSessionSocketController({ sessionManager, logger = console } = {}
   function createWorldInterval() {
     return setInterval(() => {
       sessionManager.tickWorld();
-    }, 1000);
+    }, 3000);
   }
 
   return {
