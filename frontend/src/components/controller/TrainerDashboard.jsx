@@ -3,7 +3,6 @@ import { GridCanvas } from '../maze/GridCanvas'
 import {
   GraduationCap,
   Map,
-  List,
   Eye,
   Sparkles,
   Send,
@@ -12,9 +11,6 @@ import {
   RotateCcw,
   Check,
   X,
-  Radio,
-  Bookmark,
-  Share2,
   ChevronLeft,
   ChevronRight,
   ArrowRight,
@@ -36,9 +32,8 @@ import {
 } from '../display/moiUtils'
 
 export function TrainerDashboard({ stateSync, onSend }) {
-  const [activeTab, setActiveTab] = useState('maze') // 'maze', 'events', 'perspectives', 'ai', 'broadcast'
+  const [activeTab, setActiveTab] = useState('maze') // 'maze', 'perspectives', 'ai'
   const [selectedPerspective, setSelectedPerspective] = useState('mover')
-  const [broadcastText, setBroadcastText] = useState('')
   const [timerInput, setTimerInput] = useState(15)
 
   const status = stateSync?.status || GameStatus.LOBBY
@@ -110,16 +105,6 @@ export function TrainerDashboard({ stateSync, onSend }) {
       type: MessageType.PLAYER_INPUT,
       input: { action: 'trainer_share_replay', eventId },
     })
-  }
-
-  function handleBroadcast(e) {
-    e.preventDefault()
-    if (!broadcastText.trim()) return
-    onSend({
-      type: MessageType.PLAYER_INPUT,
-      input: { action: 'trainer_broadcast', message: broadcastText.trim() },
-    })
-    setBroadcastText('')
   }
 
   function respondAiSuggestion(suggestionId, approved) {
@@ -642,7 +627,7 @@ export function TrainerDashboard({ stateSync, onSend }) {
 
       {/* Navigation Tabs + Tab Content */}
       <>
-      <div className="grid grid-cols-4 gap-1 p-1 bg-slate-900/90 border border-slate-800 rounded-xl text-xs font-bold">
+      <div className="grid grid-cols-3 gap-1 p-1 bg-slate-900/90 border border-slate-800 rounded-xl text-xs font-bold">
         <button
           type="button"
           onClick={() => setActiveTab('maze')}
@@ -651,16 +636,6 @@ export function TrainerDashboard({ stateSync, onSend }) {
           }`}
         >
           <Map className="w-4 h-4" /> Maze
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('events')}
-          className={`py-2 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-            activeTab === 'events' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <List className="w-4 h-4" /> Events ({trainerEvents.length})
         </button>
 
         <button
@@ -711,86 +686,7 @@ export function TrainerDashboard({ stateSync, onSend }) {
         </div>
       )}
 
-      {/* Tab 2: Timeline Events & Clarity Tagging */}
-      {activeTab === 'events' && (
-        <div className="flex flex-col gap-3 bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-xl">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Clarity Event Tagging</span>
-          </div>
-
-          {/* Quick Tagging Buttons */}
-          <div className="grid grid-cols-3 gap-2">
-            {CLARITY_TYPES.map((type) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => addClarityEvent(type)}
-                className="p-2 rounded-xl bg-slate-800 hover:bg-indigo-900/50 border border-slate-700/80 text-[11px] font-bold text-slate-200 capitalize active:scale-95 transition-all text-center"
-              >
-                + {type.replace('_', ' ')}
-              </button>
-            ))}
-          </div>
-
-          {/* Event Feed List */}
-          <div className="max-h-80 overflow-y-auto flex flex-col gap-2 mt-2">
-            {trainerEvents.length === 0 ? (
-              <span className="text-slate-500 italic text-xs p-2">No timeline events logged yet.</span>
-            ) : (
-              trainerEvents.slice().reverse().map((entry) => {
-                const isHighlighted = highlightedIds.includes(entry.eventId) || entry.highlighted
-                return (
-                  <div
-                    key={entry.eventId}
-                    className={`p-3 rounded-xl border flex items-center justify-between gap-2 text-xs transition-all ${
-                      isHighlighted
-                        ? 'bg-amber-950/40 border-amber-500/80 text-amber-100 shadow-md'
-                        : 'bg-slate-800/60 border-slate-700/60 text-slate-200'
-                    }`}
-                  >
-                    <div className="flex flex-col gap-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-indigo-300 capitalize">{entry.event.replace('_', ' ')}</span>
-                        {entry.player && <span className="text-[10px] text-slate-400">({entry.player})</span>}
-                      </div>
-                      {entry.reason && <span className="text-[11px] text-slate-300">{entry.reason}</span>}
-                      {entry.clarityType && <span className="text-[11px] text-amber-300 font-semibold">Clarity: {entry.clarityType}</span>}
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => toggleHighlight(entry.eventId)}
-                        className={`p-1.5 rounded-lg border text-xs ${
-                          isHighlighted
-                            ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold'
-                            : 'bg-slate-700 hover:bg-slate-600 border-slate-600 text-slate-300'
-                        }`}
-                        title="Bookmark / Highlight Event"
-                      >
-                        <Bookmark className="w-3.5 h-3.5" />
-                      </button>
-
-                      {entry.clarityType && (
-                        <button
-                          type="button"
-                          onClick={() => shareReplay(entry.eventId)}
-                          className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-400 text-xs"
-                          title="Share Replay Snippet to Big Display"
-                        >
-                          <Share2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Tab 3: Perspectives Live Previewer */}
+      {/* Tab 2: Perspectives Live Previewer */}
       {activeTab === 'perspectives' && (
         <div className="flex flex-col gap-3 bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-xl">
           <div className="flex items-center justify-around border-b border-slate-800 pb-2 text-xs font-bold">
@@ -880,24 +776,6 @@ export function TrainerDashboard({ stateSync, onSend }) {
           </div>
         </div>
       )}
-
-      {/* Facilitator Broadcast Form */}
-      <form onSubmit={handleBroadcast} className="flex gap-2 p-3 rounded-xl bg-slate-900 border border-slate-800 shadow-lg">
-        <input
-          type="text"
-          value={broadcastText}
-          onChange={(e) => setBroadcastText(e.target.value)}
-          placeholder="Broadcast a facilitator note to Big Display & Players..."
-          className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-        />
-        <button
-          type="submit"
-          disabled={!broadcastText.trim()}
-          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-bold text-xs flex items-center gap-1.5 active:scale-95 transition-all"
-        >
-          <Radio className="w-4 h-4" /> Broadcast
-        </button>
-      </form>
       </>
     </div>
   )
