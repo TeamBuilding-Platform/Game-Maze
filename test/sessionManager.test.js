@@ -649,6 +649,20 @@ test('wall collision counts as a wall hazard and triggers a reset', () => {
   }
 });
 
+test('ghosts stop moving once the round has already reached the goal', () => {
+  const { manager, sessionId } = bootstrapGame(2);
+  const session = manager.sessions.get(sessionId);
+  session.state.maze = makeOpenMaze({
+    ghosts: [{ id: 'ghost-1', row: 0, col: 1 }],
+    reached: true,
+  });
+
+  const beforeGhost = { ...session.state.maze.ghosts[0] };
+  assert.equal(manager.tickWorld(), 0);
+  assert.deepEqual(session.state.maze.ghosts[0], beforeGhost);
+  assert.equal(session.state.log.some((entry) => entry.event === 'ghost_move'), false);
+});
+
 test('reset regenerates maze seed and exposes it in synced state and export', () => {
   mock.timers.enable({ apis: ['setTimeout'] });
   try {
