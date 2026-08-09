@@ -798,8 +798,9 @@ test('phase 1 goal completion advances to phase 2 after follow-up ends', () => {
     assert.equal(phase2State.phaseFlow.phaseType, 'gameplay');
     assert.equal(phase2State.phaseFlow.currentPhase, 2);
     assert.equal(phase2State.summary.outcome, null);
-    // Per-phase state must be fresh: keys reset, maze generated, goal not pre-reached
+    // Per-phase state must be fresh: keys reset, lives recouped to 3, maze generated, goal not pre-reached
     assert.equal(phase2State.summary.keysCollected, 0);
+    assert.equal(phase2State.summary.livesRemaining, 3, 'lives lost in phase 1 must be recouped back to 3 for phase 2');
     assert.ok(phase2State.displayMaze, 'a new maze must be present for phase 2');
     assert.equal(phase2State.displayMaze.reached, false);
     assert.ok(phase2State.displayMaze.keys.every((k) => !k.collected), 'all keys must be uncollected at phase start');

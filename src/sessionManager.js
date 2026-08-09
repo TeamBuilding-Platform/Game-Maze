@@ -881,6 +881,7 @@ function beginGameplayPhase(state, phase, startedAt = Date.now()) {
     return false;
   }
   state.status = GameStatus.PLAYING;
+  state.summary.livesRemaining = START_LIVES;
   state.phaseFlow = createPhaseFlowState({
     phaseType: 'gameplay',
     currentPhase: phase,
@@ -1549,6 +1550,7 @@ class SessionManager {
     } else if (Number.isInteger(followingPhase) && followingPhase < totalPhases) {
       session.state.summary.keysCollected = 0;
       session.state.summary.resets = 0;
+      session.state.summary.livesRemaining = START_LIVES;
       const gameMode = getStateGameMode(session.state);
       const activePlayers = this._getPlayers(session);
       const newRoles = buildRoundRoles(activePlayers, session.state.roles, gameMode, true);
