@@ -15,7 +15,13 @@ const crypto = require('crypto');
 const OPPOSITE = { n: 's', s: 'n', e: 'w', w: 'e' };
 const DELTA = { n: [-1, 0], s: [1, 0], e: [0, 1], w: [0, -1] };
 const DIRS = ['n', 'e', 's', 'w'];
-const GHOST_CHASE_RANGE_CELLS = 7;
+const GHOST_CHASE_RANGE_CELLS = 4;
+
+function getGhostDistanceToPlayer(ghostRow, ghostCol, playerRow, playerCol) {
+  // Use visible tile distance so the 4-cell chase range is consistent on the board,
+  // regardless of how many turns the maze path needs.
+  return Math.abs(playerRow - ghostRow) + Math.abs(playerCol - ghostCol);
+}
 
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -399,7 +405,7 @@ const occupiedSet = new Set([
     }
   }
 
-  return {
+  const maze = {
     seed: randomId(),
     layoutVariant,
     hardMode,
@@ -415,6 +421,33 @@ const occupiedSet = new Set([
     reached: false,
     hitHazards: 0,
   };
+
+  updateGhostChaseStates(maze);
+
+  return maze;
+}
+
+function updateGhostChaseStates(maze) {
+  if (!maze || !Array.isArray(maze.ghosts) || !maze.ghosts.length || !maze.playerPos) {
+    return;
+  }
+  for (const ghost of maze.ghosts) {
+    const path = findPath(
+      maze.cells,
+      maze.height,
+      maze.width,
+      ghost.row,
+      ghost.col,
+      maze.playerPos.row,
+      maze.playerPos.col
+    );
+    if (path && path.length >= 2) {
+      const distanceToPlayer = getGhostDistanceToPlayer(ghost.row, ghost.col, maze.playerPos.row, maze.playerPos.col);
+      ghost.isChasing = distanceToPlayer <= GHOST_CHASE_RANGE_CELLS;
+    } else {
+      ghost.isChasing = false;
+    }
+  }
 }
 
 /**
@@ -442,10 +475,12 @@ function movePlayer(maze, dir) {
   maze.playerPos = { row: nr, col: nc };
 
   if (nr === maze.goal.row && nc === maze.goal.col) {
-   maze.reached = true;
-   return { result: 'goal', from: { row, col }, to: { row: nr, col: nc } };
+    maze.reached = true;
+    updateGhostChaseStates(maze);
+    return { result: 'goal', from: { row, col }, to: { row: nr, col: nc } };
   }
 
+  updateGhostChaseStates(maze);
   return { result: 'ok', from: { row, col }, to: { row: nr, col: nc } };
 }
 
@@ -463,7 +498,9 @@ function moveGhosts(maze) {
   }
 
   const moves = [];
+  const previousChaseStates = new Map();
   for (const ghost of maze.ghosts) {
+    previousChaseStates.set(ghost.id, Boolean(ghost.isChasing));
     const path = findPath(
       maze.cells,
       maze.height,
@@ -474,8 +511,9 @@ function moveGhosts(maze) {
       maze.playerPos.col
     );
     if (path && path.length >= 2) {
-      const distanceToPlayer = path.length - 1;
+      const distanceToPlayer = getGhostDistanceToPlayer(ghost.row, ghost.col, maze.playerPos.row, maze.playerPos.col);
       if (distanceToPlayer > GHOST_CHASE_RANGE_CELLS) {
+        ghost.isChasing = false;
         const roamDirs = shuffle([...DIRS]).filter((dir) => !maze.cells[ghost.row][ghost.col].walls[dir]);
         if (!roamDirs.length) {
           continue;
@@ -488,18 +526,86 @@ function moveGhosts(maze) {
         moves.push({ id: ghost.id, row: ghost.row, col: ghost.col });
         continue;
       }
+      ghost.isChasing = true;
       const next = path[1];
       ghost.row = next.row;
       ghost.col = next.col;
       moves.push({ id: ghost.id, row: ghost.row, col: ghost.col });
+    } else {
+      ghost.isChasing = false;
     }
   }
 
-  return moves;
+  updateGhostChaseStates(maze);
+
+  const chaseStateChanged = Array.from(previousChaseStates.entries()).some(([ghostId, wasChasing]) => {
+    const ghost = maze.ghosts.find((entry) => entry.id === ghostId);
+    return ghost ? Boolean(ghost.isChasing) !== wasChasing : false;
+  });
+
+  return { moves, chaseStateChanged };
 }
 
 function findGhostAt(maze, row, col) {
+  if (!maze || !Array.isArray(maze.ghosts)) return null;
   return maze.ghosts.find((ghost) => ghost.row === row && ghost.col === col) || null;
 }
 
-module.exports = { generateMaze, movePlayer, moveGhosts, findKeyAt, findLifeAt, findGhostAt };
+function spawnGhost(maze) {
+  if (!maze) return null;
+  if (!Array.isArray(maze.ghosts)) {
+    maze.ghosts = [];
+  }
+
+  const occupiedSet = new Set([
+    cellKey(maze.playerPos.row, maze.playerPos.col),
+    cellKey(maze.goal.row, maze.goal.col),
+    ...(maze.hazards || []).map((h) => cellKey(h.row, h.col)),
+    ...(maze.keys || []).map((k) => cellKey(k.row, k.col)),
+    ...(maze.lifePickups || []).map((l) => cellKey(l.row, l.col)),
+    ...maze.ghosts.map((g) => cellKey(g.row, g.col)),
+  ]);
+
+  const candidates = [];
+  for (let r = 0; r < maze.height; r++) {
+    for (let c = 0; c < maze.width; c++) {
+      if (!occupiedSet.has(cellKey(r, c))) {
+        candidates.push({ row: r, col: c });
+      }
+    }
+  }
+
+  if (candidates.length === 0) return null;
+
+  const scored = candidates.map((cell) => {
+    const dist = Math.abs(cell.row - maze.playerPos.row) + Math.abs(cell.col - maze.playerPos.col);
+    return { cell, dist };
+  });
+
+  scored.sort((a, b) => b.dist - a.dist);
+  const maxDist = scored[0].dist;
+  const farCandidates = scored.filter((s) => s.dist >= Math.max(3, maxDist - 2)).map((s) => s.cell);
+  const chosenList = farCandidates.length > 0 ? farCandidates : candidates;
+  const chosen = chosenList[Math.floor(Math.random() * chosenList.length)];
+
+  const ghost = {
+    id: `ghost-${maze.ghosts.length + 1}-${randomId()}`,
+    row: chosen.row,
+    col: chosen.col,
+  };
+
+  maze.ghosts.push(ghost);
+  updateGhostChaseStates(maze);
+  return ghost;
+}
+
+function despawnGhost(maze) {
+  if (!maze || !Array.isArray(maze.ghosts) || maze.ghosts.length === 0) {
+    return null;
+  }
+  const removed = maze.ghosts.pop();
+  updateGhostChaseStates(maze);
+  return removed;
+}
+
+module.exports = { generateMaze, movePlayer, moveGhosts, findKeyAt, findLifeAt, findGhostAt, spawnGhost, despawnGhost, updateGhostChaseStates };

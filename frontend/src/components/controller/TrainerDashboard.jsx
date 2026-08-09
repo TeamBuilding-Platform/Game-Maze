@@ -19,6 +19,7 @@ import {
   Clock,
   Key,
   AlertTriangle,
+  Ghost,
 } from 'lucide-react'
 import { MessageType, CLARITY_TYPES, GameMode, GameStatus } from '../../protocol'
 import {
@@ -84,6 +85,20 @@ export function TrainerDashboard({ stateSync, onSend }) {
 
   function sendFollowupNavigate(direction) {
     onSend({ type: MessageType.FOLLOWUP_NAVIGATE, direction })
+  }
+
+  function introduceGhost() {
+    onSend({
+      type: MessageType.PLAYER_INPUT,
+      input: { action: 'trainer_introduce_ghost' },
+    })
+  }
+
+  function removeGhost() {
+    onSend({
+      type: MessageType.PLAYER_INPUT,
+      input: { action: 'trainer_remove_ghost' },
+    })
   }
 
   function toggleHighlight(eventId) {
@@ -683,6 +698,51 @@ export function TrainerDashboard({ stateSync, onSend }) {
             mode="trainer"
             accentColor="#3b82f6"
           />
+
+          {/* Facilitator Grid Interventions */}
+          <div className="w-full mt-4 pt-3 border-t border-slate-800 flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Facilitator Interventions</span>
+              <span className={`text-[11px] font-semibold flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-colors ${
+                (trainerMaze?.ghosts || []).some((g) => g.isChasing)
+                  ? 'text-rose-300 bg-rose-950/80 border-rose-600/80 animate-pulse'
+                  : 'text-purple-300 bg-purple-950/60 border-purple-800/60'
+              }`}>
+                <Ghost className={`w-3.5 h-3.5 ${(trainerMaze?.ghosts || []).some((g) => g.isChasing) ? 'text-rose-400' : 'text-purple-400'}`} />
+                <span>Active Ghosts: {trainerMaze?.ghosts?.length || 0} {(trainerMaze?.ghosts || []).some((g) => g.isChasing) ? '• Chasing' : ''}</span>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={introduceGhost}
+                disabled={status !== GameStatus.PLAYING}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-purple-900/60 hover:bg-purple-800/80 disabled:opacity-40 disabled:cursor-not-allowed border border-purple-500/50 text-purple-100 font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all cursor-pointer"
+                title={status !== GameStatus.PLAYING ? 'Game session must be in progress to introduce a ghost' : 'Introduce a ghost entity onto the grid'}
+              >
+                <Ghost className="w-4 h-4 text-purple-300" />
+                <span>Introduce Ghost</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={removeGhost}
+                disabled={status !== GameStatus.PLAYING || (trainerMaze?.ghosts?.length || 0) === 0}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 disabled:opacity-40 disabled:cursor-not-allowed border border-rose-500/50 text-rose-100 font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all cursor-pointer"
+                title={
+                  status !== GameStatus.PLAYING
+                    ? 'Game session must be in progress'
+                    : (trainerMaze?.ghosts?.length || 0) === 0
+                    ? 'No active ghosts to despawn'
+                    : 'Despawn a ghost entity from the grid'
+                }
+              >
+                <Ghost className="w-4 h-4 text-rose-400 opacity-60" />
+                <span>Remove Ghost</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

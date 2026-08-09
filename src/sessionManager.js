@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { MessageType, GameStatus, GameMode, ClientRole, MazeRole, ErrorCode } = require('./protocol');
-const { movePlayer, moveGhosts, findKeyAt, findLifeAt, findGhostAt } = require('./maze');
+const { movePlayer, moveGhosts, findKeyAt, findLifeAt, findGhostAt, spawnGhost, despawnGhost } = require('./maze');
 const { getRoleOrder, shufflePlayers } = require('./roles/roleAssignments');
 const { createSummaryState, createTimerState } = require('./gameplay/stateSchema');
 const { createPhaseFlowState, makeInitialState, createRoundMaze } = require('./gameplay/sessionStateFactory');
@@ -881,6 +881,7 @@ function beginGameplayPhase(state, phase, startedAt = Date.now()) {
     return false;
   }
   state.status = GameStatus.PLAYING;
+  state.summary.livesRemaining = START_LIVES;
   state.phaseFlow = createPhaseFlowState({
     phaseType: 'gameplay',
     currentPhase: phase,
@@ -1549,6 +1550,7 @@ class SessionManager {
     } else if (Number.isInteger(followingPhase) && followingPhase < totalPhases) {
       session.state.summary.keysCollected = 0;
       session.state.summary.resets = 0;
+      session.state.summary.livesRemaining = START_LIVES;
       const gameMode = getStateGameMode(session.state);
       const activePlayers = this._getPlayers(session);
       const newRoles = buildRoundRoles(activePlayers, session.state.roles, gameMode, true);
@@ -1601,15 +1603,19 @@ class SessionManager {
         continue;
       }
 
-      const ghostMoves = moveGhosts(state.maze);
-      if (!ghostMoves.length) {
+      const ghostTick = moveGhosts(state.maze);
+      const ghostMoves = ghostTick.moves;
+      const shouldBroadcastGhostState = ghostTick.chaseStateChanged || ghostMoves.length > 0;
+      if (!shouldBroadcastGhostState) {
         continue;
       }
 
-      appendLog(state, {
-        event: 'ghost_move',
-        ghostMoves,
-      });
+      if (ghostMoves.length) {
+        appendLog(state, {
+          event: 'ghost_move',
+          ghostMoves,
+        });
+      }
 
       const ghostAtPlayer = findGhostAt(state.maze, state.maze.playerPos.row, state.maze.playerPos.col);
       if (ghostAtPlayer) {
@@ -1840,6 +1846,77 @@ class SessionManager {
       return true;
     }
 
+    if (isTrainer && input?.action === 'trainer_introduce_ghost') {
+      if (state.status !== GameStatus.PLAYING || !state.maze) {
+        appendLog(state, {
+          ts,
+          event: 'input_rejected',
+          playerId,
+          reason: 'not_playing',
+        });
+        this.broadcastState(sessionId);
+        return false;
+      }
+
+      const ghost = spawnGhost(state.maze);
+      if (ghost) {
+        appendLog(state, {
+          ts,
+          event: 'trainer_introduce_ghost',
+          playerId,
+          trainerName: controller.name,
+          ghostId: ghost.id,
+          position: { row: ghost.row, col: ghost.col },
+          activeGhosts: state.maze.ghosts.length,
+        });
+      } else {
+        appendLog(state, {
+          ts,
+          event: 'input_rejected',
+          playerId,
+          reason: 'grid_full',
+        });
+      }
+
+      this.broadcastState(sessionId);
+      return true;
+    }
+
+    if (isTrainer && input?.action === 'trainer_remove_ghost') {
+      if (state.status !== GameStatus.PLAYING || !state.maze) {
+        appendLog(state, {
+          ts,
+          event: 'input_rejected',
+          playerId,
+          reason: 'not_playing',
+        });
+        this.broadcastState(sessionId);
+        return false;
+      }
+
+      const removed = despawnGhost(state.maze);
+      if (removed) {
+        appendLog(state, {
+          ts,
+          event: 'trainer_remove_ghost',
+          playerId,
+          trainerName: controller.name,
+          removedGhostId: removed.id,
+          activeGhosts: state.maze.ghosts.length,
+        });
+      } else {
+        appendLog(state, {
+          ts,
+          event: 'input_rejected',
+          playerId,
+          reason: 'no_active_ghosts',
+        });
+      }
+
+      this.broadcastState(sessionId);
+      return true;
+    }
+
     if (state.status !== GameStatus.PLAYING) {
       appendLog(state, {
         ts,
@@ -1950,6 +2027,14 @@ class SessionManager {
     }
 
     const position = clonePoint(maze.playerPos);
+
+    const ghostAtPlayer = position ? findGhostAt(maze, position.row, position.col) : null;
+    if (ghostAtPlayer) {
+      applyGhostHazard(state, ghostAtPlayer);
+      this._applyResetFeedback(sessionId, 'ghost', { row: ghostAtPlayer.row, col: ghostAtPlayer.col }, input?.dir);
+      return true;
+    }
+
     const key = position ? findKeyAt(maze, position.row, position.col) : null;
 
     if (key) {

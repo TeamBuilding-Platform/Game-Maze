@@ -798,8 +798,9 @@ test('phase 1 goal completion advances to phase 2 after follow-up ends', () => {
     assert.equal(phase2State.phaseFlow.phaseType, 'gameplay');
     assert.equal(phase2State.phaseFlow.currentPhase, 2);
     assert.equal(phase2State.summary.outcome, null);
-    // Per-phase state must be fresh: keys reset, maze generated, goal not pre-reached
+    // Per-phase state must be fresh: keys reset, lives recouped to 3, maze generated, goal not pre-reached
     assert.equal(phase2State.summary.keysCollected, 0);
+    assert.equal(phase2State.summary.livesRemaining, 3, 'lives lost in phase 1 must be recouped back to 3 for phase 2');
     assert.ok(phase2State.displayMaze, 'a new maze must be present for phase 2');
     assert.equal(phase2State.displayMaze.reached, false);
     assert.ok(phase2State.displayMaze.keys.every((k) => !k.collected), 'all keys must be uncollected at phase start');
@@ -1811,3 +1812,53 @@ test('persisted session can reattach a display without losing state', (t) => {
   assert.equal(replacementDisplay.sent.at(-1).state.summary.keysCollected, 2);
   assert.equal(replacementDisplay.sent.at(-1).state.displayConnected, true);
 });
+
+test('trainer can introduce and remove ghosts dynamically during playing session', () => {
+  const { manager, trainer, sessionId } = bootstrapGame(2);
+  const trainerId = registerPlayerId(trainer);
+
+  const session = manager.sessions.get(sessionId);
+  assert.equal(session.state.maze.ghosts.length, 0);
+
+  // Trainer introduces a ghost
+  const addResult = manager.handleInput(sessionId, trainerId, { action: 'trainer_introduce_ghost' });
+  assert.equal(addResult, true);
+  assert.equal(session.state.maze.ghosts.length, 1);
+  assert.ok(session.state.log.some((e) => e.event === 'trainer_introduce_ghost'));
+
+  // Trainer introduces a second ghost
+  manager.handleInput(sessionId, trainerId, { action: 'trainer_introduce_ghost' });
+  assert.equal(session.state.maze.ghosts.length, 2);
+
+  // Trainer removes a ghost
+  const removeResult = manager.handleInput(sessionId, trainerId, { action: 'trainer_remove_ghost' });
+  assert.equal(removeResult, true);
+  assert.equal(session.state.maze.ghosts.length, 1);
+  assert.ok(session.state.log.some((e) => e.event === 'trainer_remove_ghost'));
+});
+
+test('ghost isChasing state evaluates accurately based on proximity to player', () => {
+  const { generateMaze, updateGhostChaseStates } = require('../src/maze');
+  const maze = generateMaze(7, 7, 0, 0, 0, { ghostCount: 0 });
+  maze.playerPos = { row: 0, col: 0 };
+  maze.ghosts = [
+    { id: 'g-near', row: 0, col: 2 }, // distance 2 <= 4 tiles
+    { id: 'g-at-threshold', row: 0, col: 4 }, // distance 4 <= 4 tiles
+    { id: 'g-beyond-threshold', row: 0, col: 5 }, // distance 5 > 4 tiles
+    { id: 'g-far', row: 6, col: 6 },  // distance > 4 tiles
+  ];
+
+  updateGhostChaseStates(maze);
+
+  const nearGhost = maze.ghosts.find((g) => g.id === 'g-near');
+  const thresholdGhost = maze.ghosts.find((g) => g.id === 'g-at-threshold');
+  const beyondThresholdGhost = maze.ghosts.find((g) => g.id === 'g-beyond-threshold');
+  const farGhost = maze.ghosts.find((g) => g.id === 'g-far');
+
+  assert.equal(nearGhost.isChasing, true);
+  assert.equal(thresholdGhost.isChasing, true);
+  assert.equal(beyondThresholdGhost.isChasing, false);
+  assert.equal(farGhost.isChasing, false);
+});
+
+
