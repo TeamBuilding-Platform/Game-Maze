@@ -422,10 +422,12 @@ test('startGame assigns gameplay roles while trainer remains observer', () => {
   assert.ok(Array.isArray(latestState(guide).roleData.hazards));
   assert.ok(Array.isArray(latestState(guide).roleData.ghosts));
   assert.ok(latestState(guide).roleData.playerPos);
+  assert.equal(latestState(guide).roleData.maze.cells, undefined);
 
   assert.ok(Array.isArray(latestState(keySeer).roleData.keys));
   assert.ok(latestState(keySeer).roleData.playerPos);
   assert.equal(latestState(keySeer).roleData.goal, null);
+  assert.equal(latestState(keySeer).roleData.maze.cells, undefined);
 
   assert.ok(latestState(navigator).roleData.maze);
   assert.ok(latestState(navigator).roleData.maze.cells);

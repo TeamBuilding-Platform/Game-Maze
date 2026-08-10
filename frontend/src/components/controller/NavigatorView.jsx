@@ -1,7 +1,8 @@
 import { GridCanvas } from '../maze/GridCanvas'
+import { Dpad } from './Dpad'
 import { Compass, Map } from 'lucide-react'
 
-export function NavigatorView({ roleData, summary }) {
+export function NavigatorView({ roleData, summary, status, onSendInput }) {
   const maze = roleData?.maze
   const hazards = roleData?.hazards || []
   const ghosts = roleData?.ghosts || []
@@ -29,7 +30,7 @@ export function NavigatorView({ roleData, summary }) {
       </div>
 
       {/* Navigator Map (Static Maze Cells + Mover Pos + Reached Breadcrumb Path + Hazards/Ghosts/Keys if merged) */}
-      <div className="flex flex-col items-center flex-1 min-h-0 justify-center my-2 sm:my-4">
+      <div className="flex flex-col items-center flex-1 min-h-0 justify-center my-1 sm:my-2">
         <GridCanvas keysCollected={summary?.keysCollected}
           width={maze?.width || 15}
           height={maze?.height || 15}
@@ -45,10 +46,18 @@ export function NavigatorView({ roleData, summary }) {
           mode="navigator"
           accentColor="#3b82f6"
         />
-        <p className="text-xs text-slate-400 mt-2 text-center shrink-0 hidden sm:block">
-          You see the overall maze layout and breadcrumb history. Keep the team oriented!
-        </p>
       </div>
+
+      {/* D-Pad Navigation Controls */}
+      {(onSendInput || assignedRoles.includes('mover')) && (
+        <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-1.5 sm:p-3 shadow-xl flex flex-col items-center shrink-0 my-1">
+          <span className="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Navigation Controls</span>
+          <Dpad
+            disabled={status !== 'playing'}
+            onMove={(dir) => onSendInput?.({ action: 'move', dir })}
+          />
+        </div>
+      )}
     </div>
   )
 }

@@ -57,7 +57,7 @@ export function GuideView({ roleData, summary, onSendInput, status }) {
           accentColor="#3b82f6"
         />
         <p className="text-xs text-slate-400 mt-2 text-center shrink-0 hidden sm:block">
-          You see the walls, ghosts, and hazards. Speak in real time to guide the Mover safely!
+          You see the ghosts and hazards. Speak in real time to guide the Mover safely!
         </p>
       </div>
     </div>

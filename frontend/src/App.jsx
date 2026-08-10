@@ -156,6 +156,8 @@ export default function App() {
           <NavigatorView
             roleData={mock.roleData}
             summary={mock.stateSync.summary}
+            status="playing"
+            onSendInput={() => {}}
           />
         )
 
