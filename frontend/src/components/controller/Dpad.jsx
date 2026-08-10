@@ -4,6 +4,10 @@ import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react'
 export function Dpad({ onMove, disabled = false }) {
   const containerRef = useRef(null)
   const [scale, setScale] = useState(1)
+  const unscaledDpadSizePx = 208
+  const viewportPaddingBottomPx = 12
+  const viewportPaddingRightPx = 24
+  const minimumScale = 0.45
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -35,19 +39,18 @@ export function Dpad({ onMove, disabled = false }) {
       const viewportHeight = window.innerHeight
       const viewportWidth = window.innerWidth
 
-      const baseSize = 208 // 52 * 4 = 208px
-      const spaceToBottom = viewportHeight - rect.top - 12
-      const spaceToRight = viewportWidth - 24
+      const spaceToBottom = viewportHeight - rect.top - viewportPaddingBottomPx
+      const spaceToRight = viewportWidth - viewportPaddingRightPx
 
       let fitScale = 1
-      if (spaceToBottom < baseSize && spaceToBottom > 0) {
-        fitScale = Math.min(fitScale, spaceToBottom / baseSize)
+      if (spaceToBottom < unscaledDpadSizePx && spaceToBottom > 0) {
+        fitScale = Math.min(fitScale, spaceToBottom / unscaledDpadSizePx)
       }
-      if (spaceToRight < baseSize && spaceToRight > 0) {
-        fitScale = Math.min(fitScale, spaceToRight / baseSize)
+      if (spaceToRight < unscaledDpadSizePx && spaceToRight > 0) {
+        fitScale = Math.min(fitScale, spaceToRight / unscaledDpadSizePx)
       }
 
-      const clamped = Math.max(0.45, Math.min(1.0, fitScale))
+      const clamped = Math.max(minimumScale, Math.min(1.0, fitScale))
       setScale((prev) => (Math.abs(prev - clamped) > 0.01 ? clamped : prev))
     }
 
@@ -76,7 +79,6 @@ export function Dpad({ onMove, disabled = false }) {
   }, [])
 
   const btnStyle = "w-16 h-16 rounded-2xl bg-slate-800/90 active:bg-blue-600 border border-slate-700/80 shadow-lg flex items-center justify-center text-slate-100 active:scale-95 transition-all touch-none disabled:opacity-40 select-none cursor-pointer disabled:cursor-not-allowed"
-  const baseSize = 208
 
   return (
     <div
