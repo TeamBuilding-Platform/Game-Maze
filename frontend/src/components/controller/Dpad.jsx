@@ -75,7 +75,7 @@ export function Dpad({ onMove, disabled = false }) {
     }
   }, [])
 
-  const btnStyle = "w-16 h-16 rounded-2xl bg-slate-800/90 active:bg-blue-600 border border-slate-700/80 shadow-lg flex items-center justify-center text-slate-100 active:scale-95 transition-all touch-none disabled:opacity-40 select-none cursor-pointer"
+  const btnStyle = "w-16 h-16 rounded-2xl bg-slate-800/90 active:bg-blue-600 border border-slate-700/80 shadow-lg flex items-center justify-center text-slate-100 active:scale-95 transition-all touch-none disabled:opacity-40 select-none cursor-pointer disabled:cursor-not-allowed"
   const baseSize = 208
 
   return (
