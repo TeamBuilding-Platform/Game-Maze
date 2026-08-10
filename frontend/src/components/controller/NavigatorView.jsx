@@ -1,7 +1,7 @@
 import { GridCanvas } from '../maze/GridCanvas'
 import { Compass, Map } from 'lucide-react'
 
-export function NavigatorView({ roleData, summary }) {
+export function NavigatorView({ roleData, summary, status }) {
   const maze = roleData?.maze
   const hazards = roleData?.hazards || []
   const ghosts = roleData?.ghosts || []
@@ -29,7 +29,7 @@ export function NavigatorView({ roleData, summary }) {
       </div>
 
       {/* Navigator Map (Static Maze Cells + Mover Pos + Reached Breadcrumb Path + Hazards/Ghosts/Keys if merged) */}
-      <div className="flex flex-col items-center flex-1 min-h-0 justify-center my-2 sm:my-4">
+      <div className="flex flex-col items-center flex-1 min-h-0 justify-center my-1 sm:my-2">
         <GridCanvas keysCollected={summary?.keysCollected}
           width={maze?.width || 15}
           height={maze?.height || 15}
@@ -45,9 +45,6 @@ export function NavigatorView({ roleData, summary }) {
           mode="navigator"
           accentColor="#3b82f6"
         />
-        <p className="text-xs text-slate-400 mt-2 text-center shrink-0 hidden sm:block">
-          You see the overall maze layout and breadcrumb history. Keep the team oriented!
-        </p>
       </div>
     </div>
   )

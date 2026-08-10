@@ -276,7 +276,6 @@ function buildRoleData(state, role) {
       roleData.maze = {
         width: maze.width,
         height: maze.height,
-        cells: maze.cells,
       };
     }
   }
@@ -297,7 +296,6 @@ function buildRoleData(state, role) {
       roleData.maze = {
         width: maze.width,
         height: maze.height,
-        cells: maze.cells,
       };
     }
   }
