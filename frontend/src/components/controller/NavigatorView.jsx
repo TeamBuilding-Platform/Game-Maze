@@ -1,8 +1,7 @@
 import { GridCanvas } from '../maze/GridCanvas'
-import { Dpad } from './Dpad'
 import { Compass, Map } from 'lucide-react'
 
-export function NavigatorView({ roleData, summary, status, onSendInput }) {
+export function NavigatorView({ roleData, summary, status }) {
   const maze = roleData?.maze
   const hazards = roleData?.hazards || []
   const ghosts = roleData?.ghosts || []
@@ -47,17 +46,6 @@ export function NavigatorView({ roleData, summary, status, onSendInput }) {
           accentColor="#3b82f6"
         />
       </div>
-
-      {/* D-Pad Navigation Controls */}
-      {(onSendInput || assignedRoles.includes('mover')) && (
-        <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-1.5 sm:p-3 shadow-xl flex flex-col items-center shrink-0 my-1">
-          <span className="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Navigation Controls</span>
-          <Dpad
-            disabled={status !== 'playing'}
-            onMove={(dir) => onSendInput?.({ action: 'move', dir })}
-          />
-        </div>
-      )}
     </div>
   )
 }
