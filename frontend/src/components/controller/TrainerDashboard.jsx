@@ -197,10 +197,6 @@ export function TrainerDashboard({ stateSync, onSend }) {
     const focusedIndex = moiEvents.findIndex((e) => e.eventId === focusedEvent?.eventId)
     const terminalOutcome = phaseFlow?.terminalOutcome || stateSync?.summary?.outcome || null
     const isLastPhase = Boolean(terminalOutcome) || !Number.isInteger(followingPhase) || followingPhase >= totalGameplayPhases
-    const phaseStartEntry = log.find(
-      (e) => e.event === 'phase_start' && e.phaseType === 'gameplay' && e.phase === followingPhase
-    )
-    const phaseStartT = phaseStartEntry?.t ?? 0
 
     return (
       <div className="flex flex-col gap-4 w-full max-w-md mx-auto p-4 text-slate-100">
@@ -236,7 +232,8 @@ export function TrainerDashboard({ stateSync, onSend }) {
           <div className="p-5 rounded-2xl bg-rose-950/20 border border-rose-200/30 shadow-xl flex flex-col gap-1">
             <p className="text-base font-black text-rose-200 leading-tight">{getMoiLabel(focusedEvent, selectedGameMode)}</p>
             {typeof focusedEvent.t === 'number' && (
-             <p className="text-sm font-semibold text-rose-300/70">{formatSeconds(getMoiDisplayTime(focusedEvent, phaseStartT))}</p>
+             // Event times from getMoiEventsForPhase are already phase-relative
+             <p className="text-sm font-semibold text-rose-300/70">{formatSeconds(getMoiDisplayTime(focusedEvent, 0))}</p>
             )}
           </div>
         ) : (
