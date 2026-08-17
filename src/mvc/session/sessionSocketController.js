@@ -101,6 +101,16 @@ function createSessionSocketController({ sessionManager, logger = console } = {}
         sessionManager.resync(meta.sessionId, socket);
       }
     },
+
+    [MessageType.PING](_message, socket) {
+      // App-level heartbeat: browsers cannot observe protocol-level pings, so
+      // clients send PING and use this PONG to detect half-dead connections.
+      try {
+        socket.send(JSON.stringify(encodeServerMessage({ type: MessageType.PONG, ts: Date.now() })));
+      } catch {
+        // Ignore send failures on closing sockets.
+      }
+    },
   };
 
   function socketLogMeta(socket) {

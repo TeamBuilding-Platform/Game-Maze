@@ -147,7 +147,7 @@ pm2 save
 
 ## Deployment Architecture
 
-- **Code**: GitHub repo at `Attic-at-Night/TeamBuilding`
+- **Code**: GitHub repo at `TeamBuilding-Platform/Game-Maze`
 - **Server**: DigitalOcean droplet (`159.223.9.158`)
 - **Deploy user**: `deploy@159.223.9.158`
 - **App directory**: `/var/www/teambuilding/`

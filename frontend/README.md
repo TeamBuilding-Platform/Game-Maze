@@ -1,7 +1,7 @@
-# TeamBuilding React frontend scaffold
+# TeamBuilding React frontend
 
-This frontend is the handoff workspace for rebuilding the Phaser UI in React.
-It targets the existing Express + WebSocket backend without changing server behavior.
+This is the production frontend (React + Vite). It replaced the original Phaser UI
+and is served by the Express backend from `frontend/dist` after `npm run build`.
 
 ## Commands
 
@@ -52,12 +52,14 @@ The scaffold keeps protocol constants in `src/protocol.js` for React usage.
 - `followup_end` `{}`
 - `player_input` `{ input }`
 - `resync_request` `{}`
+- `ping` `{}` (app-level heartbeat)
 
 ### Server -> client messages
 
 - `client_registered`
 - `state_sync`
 - `join_error` (includes `code`)
+- `pong` (heartbeat reply)
 - `session_closed` (legacy event)
 
 Server envelopes include protocol version `v` and message `type`.

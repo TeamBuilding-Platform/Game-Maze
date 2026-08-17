@@ -132,9 +132,11 @@ phase flow ───────→ phase 1 (15:00) → phase 2 (10:00) → phas
 | Client → Server | `followup_end` | Display or trainer ends follow-up; the last follow-up restarts a fresh round, while terminal failures end the session |
 | Client → Server | `player_input` | Controller sends an action (e.g. `{ action: "buzz" }`) |
 | Client → Server | `resync_request` | Any client requests a full state re-send (reconnect) |
+| Client → Server | `ping` | App-level heartbeat; clients use it to detect half-dead connections |
 | Server → Client | `client_registered` | Acknowledges display/controller registration |
 | Server → Client | `state_sync` | Authoritative game state broadcast to all clients |
 | Server → Client | `join_error` | Registration or join failure |
+| Server → Client | `pong` | Reply to a client `ping` |
 | Server → Client | `session_closed` | (Legacy) Session ended and was removed; currently not emitted by the server |
 
 All server-sent WebSocket messages now include protocol version `v`.
@@ -161,8 +163,17 @@ Abandoned sessions no longer live forever. If a session has no connected display
 the server automatically closes it after 10 minutes. A returning display or controller reconnect cancels that
 pending cleanup window.
 
-Controllers now receive a reconnect token in `client_registered`, and the client stores it locally to support
-automatic/manual rejoin of the same player slot when the session still exists.
+Controllers now receive a reconnect token in `client_registered`, and the client stores it per-tab
+(`sessionStorage`) so each tab holds its own player identity - multiple tabs on one device can play as
+separate players while same-tab reloads still auto-resume. Reconnect handling is forgiving:
+
+- A join carrying a stale or unknown `reconnectToken` is never rejected; the server falls back to a normal join
+  (claiming an open disconnected slot mid-game, inheriting its slot-bound roles) and issues a fresh token.
+- In the lobby, a fresh join whose name matches a player whose socket is dead or in the disconnect grace window
+  takes over that player slot instead of creating a duplicate.
+- The frontend silently auto-resumes in the same tab (stored token + `?session=` in the URL — no name or session
+  re-entry), retries with exponential backoff, and reconnects immediately when the network returns or the tab
+  becomes visible. A client-side `ping`/`pong` heartbeat force-closes half-dead sockets so reconnects start fast.
 
 The server also now maintains authoritative timer state with `idle`, `running`, `stopped`, and `expired`
 lifecycle states. Timer transitions are included in synchronized state and persisted session exports.
@@ -178,9 +189,9 @@ timer when facilitation needs it.
 
 ```json
 {
-  "status": "lobby | playing | follow_up | ended",
+  "status": "lobby | playing | follow_up | session_overview | ended",
   "players": [{ "id": "uuid", "name": "Alice" }],
-  "roles": { "<playerId>": "mover | guide" },
+  "roles": { "<playerId>": ["mover", "key-seer"] },
   "maze": {
     "width": 7, "height": 7,
     "cells": [[{ "walls": { "n": true, "e": false, "s": false, "w": true } }]],
@@ -246,32 +257,45 @@ close/error cases, and abandoned-session cleanup) are emitted to the normal serv
 ## Project structure
 
 ```
-server.js              Express + WebSocket server; WS message dispatch
+server.js              Express + WebSocket server bootstrap
 src/
   config/
     gameplaySettings.js Shared gameplay/session tuning
   gameplay/
     roleBalancing.js    Role assignment/cycling/rebalancing helpers
     sessionStateFactory.js Session state + phase/maze defaults
+    stateSchema.js      Summary/timer state factories
   mvc/
     session/
       sessionController.js Session HTTP controller
       sessionModel.js      Session model wrapper
+      sessionRoutes.js     Session HTTP routes
+      sessionSocketController.js WS message dispatch, heartbeat, ping/pong
       sessionView.js       Session response view
-  protocol.js          Shared message type / game status / client role constants
-  sessionManager.js    Game session lifecycle (display, controllers, state)
-  network.js           Local IP / SSID detection for the QR code URL
+  networking/
+    heartbeat.js       Heartbeat/grace-window tuning (env-configurable)
+    messageEnvelope.js Protocol version envelope encode/normalize
+  roles/
+    roleAssignments.js Role order per player count + rotation
   session/
-    sessionIdentity.js  Session/reconnect token helpers
+    sessionIdentity.js Session/reconnect token helpers
+  trainer/
+    clarityEvents.js   Trainer clarity-event validation
+  maze.js              Maze generation, movement, ghosts
+  network.js           Local IP / SSID detection for the QR code URL
+  protocol.js          Shared message type / game status / client role constants
+  serverConfig.js      Port parsing helpers
+  sessionLogStore.js   Durable session log persistence
+  sessionManager.js    Game session lifecycle (display, controllers, state)
   url.js               Public/session origin helpers
 frontend/              React + Vite SPA served from frontend/dist (display + controller UI)
   src/
     App.jsx             Root component; switches between display and controller modes
     components/display/ Display (big screen) views
     components/controller/ Controller (phone) views per role
-    controllers/useSessionAppController.js WebSocket/session state hook
-test/
-  sessionManager.test.js
-  network.test.js
-  url.test.js
+    controllers/useSessionAppController.js WebSocket/session/reconnect state hook
+    reconnectStorage.js Per-tab reconnect token persistence
+test/                  Node.js built-in test runner suites (heartbeat, maze,
+                       messageEnvelope, network, serverConfig, sessionLogStore,
+                       sessionManager, url)
 ```
