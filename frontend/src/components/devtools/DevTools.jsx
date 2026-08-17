@@ -23,14 +23,14 @@ import {
   Megaphone,
 } from 'lucide-react'
 
-export const BIG_SCREEN_VIEWS = [
+const BIG_SCREEN_VIEWS = [
   { id: 'display_lobby', label: 'Lobby View', icon: Users, color: 'text-blue-400' },
   { id: 'display_playing', label: 'Gameplay View', icon: Tv, color: 'text-indigo-400' },
   { id: 'display_followup', label: 'Follow-up Dashboard', icon: Clock, color: 'text-teal-400' },
   { id: 'display_debrief', label: 'Debrief Summary', icon: RotateCcw, color: 'text-purple-400' },
 ]
 
-export const CONTROLLER_VIEWS = [
+const CONTROLLER_VIEWS = [
   { id: 'controller_join', label: 'Join Form', icon: Smartphone, color: 'text-slate-300' },
   { id: 'controller_waiting', label: 'Lobby Waiting', icon: Users, color: 'text-sky-400' },
   { id: 'controller_mover', label: 'Mover Role', icon: Footprints, color: 'text-blue-400' },
@@ -65,7 +65,7 @@ export function DevTools({
       const forceDevTools = urlParams.get('devtools') === 'true'
 
       return inIframe || isDevHost || isAIStudioReferrer || forceDevTools
-    } catch (e) {
+    } catch {
       return false
     }
   }

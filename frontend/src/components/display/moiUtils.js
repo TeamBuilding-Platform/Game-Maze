@@ -182,7 +182,6 @@ function extractRoundsData(log, summary = {}) {
       ...e,
       t: typeof e.t === 'number' ? e.t : (e.ts ? (e.ts - firstTs) / 1000 : 0)
     }))
-    const keysCount = log.filter((e) => e.event === 'key_pickup').length
     const hazardsCount = log.filter((e) => e.event === 'hazard_hit').length
     const resetsCount = Math.max(log.filter((e) => e.event === 'reset').length, summary?.resetsCount || summary?.resets || 0)
     const lastResetIdx = log.map((e, idx) => e.event === 'reset' ? idx : -1).filter((idx) => idx >= 0).pop() ?? -1

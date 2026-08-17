@@ -1,7 +1,7 @@
 import { GridCanvas } from '../maze/GridCanvas'
 import { Key } from 'lucide-react'
 
-export function KeySeerView({ roleData, summary, onSendInput, status }) {
+export function KeySeerView({ roleData, summary }) {
   const keys = roleData?.keys || []
   const goal = roleData?.goal || null
   const playerPos = roleData?.playerPos || roleData?.maze?.playerPos

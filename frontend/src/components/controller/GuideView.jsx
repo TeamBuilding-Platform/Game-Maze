@@ -1,7 +1,7 @@
 import { GridCanvas } from '../maze/GridCanvas'
 import { Eye, AlertTriangle, Ghost } from 'lucide-react'
 
-export function GuideView({ roleData, summary, onSendInput, status }) {
+export function GuideView({ roleData, summary }) {
   const hazards = roleData?.hazards || []
   const ghosts = roleData?.ghosts || []
   const playerPos = roleData?.playerPos || roleData?.maze?.playerPos

@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { Users, GraduationCap, Play, Smartphone, ArrowRight } from 'lucide-react'
+import { GraduationCap, Smartphone, ArrowRight } from 'lucide-react'
 
 export function ControllerLobby({
   sessionId,

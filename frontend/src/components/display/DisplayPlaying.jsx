@@ -1,4 +1,4 @@
-import { Heart, Key, Timer, Shield, Users, Radio, Compass, Eye, Map, Footprints, AlertCircle, Lock, Sparkles } from 'lucide-react'
+import { Heart, Key, Timer, Users, Radio, Compass, Eye, Map, Footprints, Lock, Sparkles } from 'lucide-react'
 import { getModeDisplayName } from './moiUtils'
 
 export function DisplayPlaying({ stateSync }) {

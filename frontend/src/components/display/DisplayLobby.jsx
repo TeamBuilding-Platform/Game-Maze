@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Users, Play, Smartphone, QrCode, Sparkles, ExternalLink } from 'lucide-react'
+import { Users, Smartphone, QrCode, Sparkles, ExternalLink } from 'lucide-react'
 import QRCode from 'qrcode'
 
 export function DisplayLobby({
@@ -8,10 +8,7 @@ export function DisplayLobby({
   qrCodeDataUrl,
   players = [],
   trainers = [],
-  ready = false,
   capacity = 4,
-  onStartGame,
-  onStartTimer,
   errorText,
 }) {
   const [qrCodeImage, setQrCodeImage] = useState(qrCodeDataUrl || '')

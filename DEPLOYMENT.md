@@ -61,8 +61,8 @@ ssh root@159.223.9.158
 # Update system
 apt update && apt upgrade -y
 
-# Install Node.js 20
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+# Install Node.js 24 (the version used by CI and declared in package.json)
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 apt install -y nodejs
 
 # Install pm2 globally

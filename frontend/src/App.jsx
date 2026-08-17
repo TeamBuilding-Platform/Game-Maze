@@ -49,7 +49,6 @@ export default function App() {
           joinUrl={joinUrl}
           qrCodeDataUrl={qrCodeDataUrl}
           errorText={errorText}
-          onStartGame={() => send({ type: MessageType.GAME_START })}
           onRestart={() => send({ type: MessageType.GAME_RESTART })}
           onSend={send}
         />
@@ -79,8 +78,6 @@ export default function App() {
             qrCodeDataUrl=""
             players={mock.stateSync.players}
             trainers={mock.stateSync.trainers}
-            ready={true}
-            onStartGame={() => {}}
           />
         )
 
@@ -126,7 +123,6 @@ export default function App() {
           <MoverView
             roleData={mock.roleData}
             summary={mock.stateSync.summary}
-            status="playing"
             onSendInput={() => {}}
           />
         )
@@ -136,8 +132,6 @@ export default function App() {
           <GuideView
             roleData={mock.roleData}
             summary={mock.stateSync.summary}
-            status="playing"
-            onSendInput={() => {}}
           />
         )
 
@@ -146,8 +140,6 @@ export default function App() {
           <KeySeerView
             roleData={mock.roleData}
             summary={mock.stateSync.summary}
-            status="playing"
-            onSendInput={() => {}}
           />
         )
 
@@ -156,8 +148,6 @@ export default function App() {
           <NavigatorView
             roleData={mock.roleData}
             summary={mock.stateSync.summary}
-            status="playing"
-            onSendInput={() => {}}
           />
         )
 
