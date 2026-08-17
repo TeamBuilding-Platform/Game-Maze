@@ -1,6 +1,6 @@
 # TeamBuilding Project Overview
 
-**GitHub Repository**: https://github.com/Attic-at-Night/TeamBuilding
+**GitHub Repository**: https://github.com/TeamBuilding-Platform/Game-Maze
 
 ---
 
@@ -15,12 +15,11 @@ A real-time multiplayer game where teams compete to navigate mazes on a shared d
 ## Tech Stack
 
 ### Frontend (Browser)
-- **HTML + CSS + JavaScript** (vanilla, no frameworks)
-- **Phaser 3** — 2D game framework using WebGL rendering
-  - Handles maze rendering, player graphics, animations
-  - Responsive scene management (different scenes for display vs. mobile)
-  - Loaded via CDN (`phaser@3.88.2`)
-- **WebSocket** for real-time game sync with server
+- **React 19 + Vite** SPA in `frontend/`, served by the backend from `frontend/dist`
+  - Display (big screen) and controller (phone) views per role
+  - Tailwind CSS for styling
+- **WebSocket** for real-time game sync with server, including automatic
+  reconnect with per-tab identity, backoff, and an app-level ping/pong heartbeat
 - Runs on both display screen (large monitor) and player phones (mobile browsers)
 
 ### Backend (Node.js)
@@ -31,7 +30,7 @@ A real-time multiplayer game where teams compete to navigate mazes on a shared d
 
 ### Testing
 - **Node.js built-in test runner** (`node --test`)
-- 20 tests covering networking, game logic, WebSocket flows
+- 90+ tests covering networking, game logic, reconnect handling, and WebSocket flows
 
 ---
 
@@ -71,7 +70,7 @@ A real-time multiplayer game where teams compete to navigate mazes on a shared d
 | **GitHub Copilot** | $10/user/month | AI-assisted code writing during development | Speeds up feature implementation; optional for development |
 | **Copilot Agents** | Included with Copilot | Automated coding tasks, PR creation, investigation | Used to set up deployment workflow; optional automation |
 | **DigitalOcean Droplet** | $4/month | VPS for running live server | Cheapest reliable option; can stop when not using |
-| **Phaser 3** | Free | 2D game framework, WebGL rendering | Open-source; industry-standard for browser games |
+| **React + Vite + Tailwind** | Free | Frontend framework, build tooling, styling | Open-source, industry standard |
 | **pm2** | Free | Process manager, auto-restart | Industry standard, no alternative cost |
 | **Node.js** | Free | Runtime | Industry standard, no alternative cost |
 | **Express.js** | Free | Web framework | Industry standard, no alternative cost |
@@ -123,17 +122,18 @@ App runs on `http://localhost:3000`. Phones on the same WiFi network can join vi
 3. **Players Join**: Teammates scan QR code on their phones
 4. **Game Starts**: Display host clicks "Start Game"
 5. **Live Gameplay**: Players move their characters; display updates in real-time via WebSocket
-6. **End**: Session closes when display disconnects
+6. **End**: Fixed phase flow with follow-up debriefs; sessions survive transient
+   disconnects (players auto-reconnect) and are cleaned up after 10 minutes of
+   abandonment
 
 ---
 
 ## Key Files
 
 - `server.js` — Express server + WebSocket handler
-- `src/sessionManager.js` — Game logic, session management
+- `src/sessionManager.js` — Game logic, session management, reconnect handling
 - `src/protocol.js` — Message types and constants
-- `public/display.html` + `public/display.js` — Large screen UI (Phaser scene)
-- `public/join.html` + `public/join.js` — Phone join/game UI (Phaser scenes)
+- `frontend/src/` — React SPA: display (big screen) and controller (phone) UI
 - `.github/workflows/deploy.yml` — Automated deployment
 - `DEPLOYMENT.md` — Operations cheat sheet
 
@@ -141,7 +141,7 @@ App runs on `http://localhost:3000`. Phones on the same WiFi network can join vi
 
 ## Repository Links
 
-- **Code**: https://github.com/Attic-at-Night/TeamBuilding
+- **Code**: https://github.com/TeamBuilding-Platform/Game-Maze
 - **Server**: http://159.65.197.157:3000
 - **Deployment Docs**: See `DEPLOYMENT.md` in repo
 - **Tests**: Run `npm test`
@@ -151,7 +151,7 @@ App runs on `http://localhost:3000`. Phones on the same WiFi network can join vi
 ## Status & Next Steps
 
 - ✅ Game fully functional
-- ✅ Phaser rendering (WebGL) smooth and responsive
+- ✅ React frontend smooth and responsive
 - ✅ Automated deployment working
 - ✅ Auto-restart on server reboot
 - 🎮 Ready for multiplayer testing

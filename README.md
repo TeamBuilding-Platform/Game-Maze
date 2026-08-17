@@ -189,9 +189,9 @@ timer when facilitation needs it.
 
 ```json
 {
-  "status": "lobby | playing | follow_up | ended",
+  "status": "lobby | playing | follow_up | session_overview | ended",
   "players": [{ "id": "uuid", "name": "Alice" }],
-  "roles": { "<playerId>": "mover | guide" },
+  "roles": { "<playerId>": ["mover", "key-seer"] },
   "maze": {
     "width": 7, "height": 7,
     "cells": [[{ "walls": { "n": true, "e": false, "s": false, "w": true } }]],
@@ -257,32 +257,45 @@ close/error cases, and abandoned-session cleanup) are emitted to the normal serv
 ## Project structure
 
 ```
-server.js              Express + WebSocket server; WS message dispatch
+server.js              Express + WebSocket server bootstrap
 src/
   config/
     gameplaySettings.js Shared gameplay/session tuning
   gameplay/
     roleBalancing.js    Role assignment/cycling/rebalancing helpers
     sessionStateFactory.js Session state + phase/maze defaults
+    stateSchema.js      Summary/timer state factories
   mvc/
     session/
       sessionController.js Session HTTP controller
       sessionModel.js      Session model wrapper
+      sessionRoutes.js     Session HTTP routes
+      sessionSocketController.js WS message dispatch, heartbeat, ping/pong
       sessionView.js       Session response view
-  protocol.js          Shared message type / game status / client role constants
-  sessionManager.js    Game session lifecycle (display, controllers, state)
-  network.js           Local IP / SSID detection for the QR code URL
+  networking/
+    heartbeat.js       Heartbeat/grace-window tuning (env-configurable)
+    messageEnvelope.js Protocol version envelope encode/normalize
+  roles/
+    roleAssignments.js Role order per player count + rotation
   session/
-    sessionIdentity.js  Session/reconnect token helpers
+    sessionIdentity.js Session/reconnect token helpers
+  trainer/
+    clarityEvents.js   Trainer clarity-event validation
+  maze.js              Maze generation, movement, ghosts
+  network.js           Local IP / SSID detection for the QR code URL
+  protocol.js          Shared message type / game status / client role constants
+  serverConfig.js      Port parsing helpers
+  sessionLogStore.js   Durable session log persistence
+  sessionManager.js    Game session lifecycle (display, controllers, state)
   url.js               Public/session origin helpers
 frontend/              React + Vite SPA served from frontend/dist (display + controller UI)
   src/
     App.jsx             Root component; switches between display and controller modes
     components/display/ Display (big screen) views
     components/controller/ Controller (phone) views per role
-    controllers/useSessionAppController.js WebSocket/session state hook
-test/
-  sessionManager.test.js
-  network.test.js
-  url.test.js
+    controllers/useSessionAppController.js WebSocket/session/reconnect state hook
+    reconnectStorage.js Per-tab reconnect token persistence
+test/                  Node.js built-in test runner suites (heartbeat, maze,
+                       messageEnvelope, network, serverConfig, sessionLogStore,
+                       sessionManager, url)
 ```

@@ -1,7 +1,7 @@
-# TeamBuilding React frontend scaffold
+# TeamBuilding React frontend
 
-This frontend is the handoff workspace for rebuilding the Phaser UI in React.
-It targets the existing Express + WebSocket backend without changing server behavior.
+This is the production frontend (React + Vite). It replaced the original Phaser UI
+and is served by the Express backend from `frontend/dist` after `npm run build`.
 
 ## Commands
 
