@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { MessageType, ErrorCode } from '../protocol'
 import { createGameSocket, getBackendHttpOrigin } from '../wsClient'
 import { getMockStateForView } from '../mockData'
-import { loadReconnectState, saveReconnectState, clearReconnectState } from '../reconnectStorage'
+import { loadReconnectState, saveReconnectState, clearReconnectState, announceTokenOwnership, probeTokenOwnership } from '../reconnectStorage'
 
 const RECONNECT_BASE_DELAY_MS = 500
 const RECONNECT_MAX_DELAY_MS = 5000
@@ -43,6 +43,7 @@ export function useSessionAppController() {
   const retryAttemptRef = useRef(0)
   const connectionStateRef = useRef('disconnected')
   const autoResumeAttemptedRef = useRef(false)
+  const ownershipCleanupRef = useRef(null)
 
   useEffect(() => {
     connectionStateRef.current = connectionState
@@ -52,6 +53,10 @@ export function useSessionAppController() {
     if (retryTimerRef.current) {
       clearTimeout(retryTimerRef.current)
       retryTimerRef.current = null
+    }
+    if (ownershipCleanupRef.current) {
+      ownershipCleanupRef.current()
+      ownershipCleanupRef.current = null
     }
   }, [])
 
@@ -183,6 +188,12 @@ export function useSessionAppController() {
                 name: playerNameText,
                 isTrainer: Boolean(message.isTrainer),
               })
+              // Answer duplicate-tab ownership probes for this token so a cloned
+              // sessionStorage copy can't silently steal the slot.
+              if (ownershipCleanupRef.current) {
+                ownershipCleanupRef.current()
+              }
+              ownershipCleanupRef.current = announceTokenOwnership(activeSession, message.reconnectToken)
             }
             setIsReconnecting(false)
           } else if (message.type === MessageType.STATE_SYNC) {
@@ -194,15 +205,18 @@ export function useSessionAppController() {
               code === ErrorCode.RECONNECT_REPLACED ||
               code === ErrorCode.RECONNECT_SLOT_UNAVAILABLE
             )
-            if (isReconnectError) {
+            // A missing session is terminal: drop the stored identity so
+            // auto-resume and the backoff loop stop retrying a dead session.
+            if (isReconnectError || code === ErrorCode.SESSION_NOT_FOUND) {
               clearReconnectState(activeSession)
             }
             setErrorText(`${message.message || 'Error joining session.'} (${code})`)
             setConnectionState('disconnected')
             if (code === ErrorCode.SESSION_UNAVAILABLE) {
-              // Transient: the display may be reconnecting too. The server leaves
-              // the socket open after this error, so force-close it and let the
-              // stored-token backoff in onClose keep retrying.
+              // Transient: the display may be reconnecting too (a missing session
+              // is session_not_found instead). The server leaves the socket open
+              // after this error, so force-close it and let the stored-token
+              // backoff in onClose keep retrying.
               handle.close()
               return
             }
@@ -288,12 +302,21 @@ export function useSessionAppController() {
   }, [activeView, mode, sessionId, connectionState, createNewSession, connectSocket])
 
   // Silent auto-resume: same tab, session in URL, stored reconnect token → skip the join form.
+  // A duplicated tab clones sessionStorage, so first probe whether a live tab
+  // already owns the token; if so, drop the copied identity and show the form.
   useEffect(() => {
-    if (autoResumeAttemptedRef.current) return
-    if (mode !== 'controller' || activeView !== 'live' || !sessionId) return
+    if (autoResumeAttemptedRef.current) return undefined
+    if (mode !== 'controller' || activeView !== 'live' || !sessionId) return undefined
     autoResumeAttemptedRef.current = true
     const stored = loadReconnectState(sessionId)
-    if (stored && stored.reconnectToken) {
+    if (!stored || !stored.reconnectToken) return undefined
+    let cancelled = false
+    probeTokenOwnership(sessionId, stored.reconnectToken).then((ownedElsewhere) => {
+      if (cancelled) return
+      if (ownedElsewhere) {
+        clearReconnectState(sessionId)
+        return
+      }
       setPlayerName(stored.name || '')
       connectSocket({
         targetSessionId: sessionId,
@@ -301,6 +324,9 @@ export function useSessionAppController() {
         isTrainer: Boolean(stored.isTrainer),
         reconnectToken: stored.reconnectToken,
       })
+    })
+    return () => {
+      cancelled = true
     }
   }, [mode, activeView, sessionId, connectSocket])
 

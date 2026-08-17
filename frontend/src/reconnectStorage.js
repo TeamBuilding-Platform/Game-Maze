@@ -43,3 +43,75 @@ export function clearReconnectState(sessionId) {
     // Ignore storage failures.
   }
 }
+
+/**
+ * Cross-tab token ownership.
+ *
+ * sessionStorage alone does not guarantee one identity per tab: duplicating a
+ * tab (and same-origin windows opened with an opener) clones session storage,
+ * so a duplicate would silently auto-resume the copied token and kick the
+ * original player. Before auto-resuming, a tab probes over a BroadcastChannel;
+ * any live tab that registered with the same token replies, and the prober
+ * then clears its copied identity instead of stealing the slot.
+ */
+
+const OWNERSHIP_CHANNEL = 'teambuilding.reconnect.ownership'
+const OWNERSHIP_PROBE_TIMEOUT_MS = 250
+
+function openOwnershipChannel() {
+  if (typeof BroadcastChannel === 'undefined') {
+    return null
+  }
+  try {
+    return new BroadcastChannel(OWNERSHIP_CHANNEL)
+  } catch {
+    return null
+  }
+}
+
+export function announceTokenOwnership(sessionId, reconnectToken) {
+  const channel = openOwnershipChannel()
+  if (!channel) {
+    return () => {}
+  }
+  channel.onmessage = (event) => {
+    const msg = event && event.data ? event.data : {}
+    if (msg.type === 'probe' && msg.sessionId === sessionId && msg.reconnectToken === reconnectToken) {
+      channel.postMessage({ type: 'owned', sessionId, reconnectToken })
+    }
+  }
+  return () => {
+    try {
+      channel.close()
+    } catch {
+      // Ignore close failures.
+    }
+  }
+}
+
+export function probeTokenOwnership(sessionId, reconnectToken) {
+  return new Promise((resolve) => {
+    const channel = openOwnershipChannel()
+    if (!channel) {
+      resolve(false)
+      return
+    }
+    const finish = (ownedElsewhere) => {
+      try {
+        channel.close()
+      } catch {
+        // Ignore close failures.
+      }
+      resolve(ownedElsewhere)
+    }
+    const timer = setTimeout(() => finish(false), OWNERSHIP_PROBE_TIMEOUT_MS)
+    channel.onmessage = (event) => {
+      const msg = event && event.data ? event.data : {}
+      if (msg.type === 'owned' && msg.sessionId === sessionId && msg.reconnectToken === reconnectToken) {
+        clearTimeout(timer)
+        finish(true)
+      }
+    }
+    channel.postMessage({ type: 'probe', sessionId, reconnectToken })
+  })
+}

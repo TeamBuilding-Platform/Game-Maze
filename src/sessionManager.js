@@ -1032,7 +1032,9 @@ class SessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) {
       this._log('warn', 'Rejected controller join for missing session.', { sessionId });
-      sendJoinError(socket, 'Session is unavailable.', ErrorCode.SESSION_UNAVAILABLE);
+      // Terminal (unlike a temporarily disconnected display): the session is gone,
+      // so clients must stop retrying and return to the join form.
+      sendJoinError(socket, 'Session does not exist.', ErrorCode.SESSION_NOT_FOUND);
       return false;
     }
 

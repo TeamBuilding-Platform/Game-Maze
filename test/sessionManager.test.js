@@ -2022,3 +2022,12 @@ test('client app-level ping receives a pong reply', () => {
   assert.ok(pong, 'pong reply sent');
   assert.equal(typeof pong.ts, 'number');
 });
+
+test('controller join to a missing session is rejected with terminal session_not_found', () => {
+  const manager = new SessionManager();
+  const socket = createFakeSocket();
+
+  assert.equal(manager.joinController('NOPE42', { name: 'Alex', reconnectToken: 'old-token' }, socket), false);
+  assert.equal(socket.sent.at(-1).type, MessageType.JOIN_ERROR);
+  assert.equal(socket.sent.at(-1).code, 'session_not_found');
+});
