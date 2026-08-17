@@ -11,7 +11,7 @@
  * won't auto-resume, but the server's lobby same-name takeover and mid-game
  * slot-claim recover the player slot on a fresh join.
  *
- * Storage shape: { playerId: string, reconnectToken: string, name: string }
+ * Storage shape: { playerId: string, reconnectToken: string, name: string, isTrainer: boolean }
  * Storage key:   "teambuilding.reconnect.<SESSIONID>"
  */
 

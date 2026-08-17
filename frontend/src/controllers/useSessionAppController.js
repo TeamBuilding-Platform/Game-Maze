@@ -149,12 +149,15 @@ export function useSessionAppController() {
           if (mode === 'display') {
             send({ type: MessageType.DISPLAY_REGISTER, sessionId: activeSession })
           } else if (reconnectToken) {
-            // Reconnect: send token to restore player identity; never set requestedTrainer
+            // Reconnect: the token restores identity server-side. requestedTrainer
+            // is ignored when the token is valid, but keeps trainer identity when
+            // the token is stale and the server falls back to a fresh join.
             send({
               type: MessageType.CONTROLLER_JOIN,
               sessionId: activeSession,
               name: playerNameText,
               reconnectToken,
+              requestedTrainer: Boolean(isTrainer),
             })
           } else {
             send({
@@ -178,13 +181,13 @@ export function useSessionAppController() {
                 playerId: message.playerId || null,
                 reconnectToken: message.reconnectToken,
                 name: playerNameText,
+                isTrainer: Boolean(message.isTrainer),
               })
             }
             setIsReconnecting(false)
           } else if (message.type === MessageType.STATE_SYNC) {
             setStateSync(message.state || null)
           } else if (message.type === MessageType.JOIN_ERROR) {
-            joinRejected = true
             const code = message.code || ''
             const isReconnectError = (
               code === ErrorCode.INVALID_RECONNECT_TOKEN ||
@@ -194,9 +197,18 @@ export function useSessionAppController() {
             if (isReconnectError) {
               clearReconnectState(activeSession)
             }
-            setIsReconnecting(false)
             setErrorText(`${message.message || 'Error joining session.'} (${code})`)
             setConnectionState('disconnected')
+            if (code === ErrorCode.SESSION_UNAVAILABLE) {
+              // Transient: the display may be reconnecting too. The server leaves
+              // the socket open after this error, so force-close it and let the
+              // stored-token backoff in onClose keep retrying.
+              handle.close()
+              return
+            }
+            // Terminal join errors: don't loop retries.
+            joinRejected = true
+            setIsReconnecting(false)
           }
         },
         onClose() {
@@ -228,6 +240,7 @@ export function useSessionAppController() {
               connectSocket({
                 targetSessionId: activeSession,
                 name: stored.name || 'Player',
+                isTrainer: Boolean(stored.isTrainer),
                 reconnectToken: stored.reconnectToken,
               })
             }, delay)
@@ -285,6 +298,7 @@ export function useSessionAppController() {
       connectSocket({
         targetSessionId: sessionId,
         name: stored.name || 'Player',
+        isTrainer: Boolean(stored.isTrainer),
         reconnectToken: stored.reconnectToken,
       })
     }
@@ -303,6 +317,7 @@ export function useSessionAppController() {
         connectSocket({
           targetSessionId: sessionId,
           name: stored.name || 'Player',
+          isTrainer: Boolean(stored.isTrainer),
           reconnectToken: stored.reconnectToken,
         })
       }
@@ -321,12 +336,13 @@ export function useSessionAppController() {
     setPlayerName(name)
     retryAttemptRef.current = 0
     // Reuse a stored identity for this session so a form rejoin never forks a
-    // duplicate player. Explicit trainer requests always join fresh.
+    // duplicate player. Explicit trainer requests always join fresh, and a
+    // stored trainer identity is honored even if the checkbox is left blank.
     const stored = requestedTrainer ? null : loadReconnectState(joinSession)
     connectSocket({
       targetSessionId: joinSession,
       name,
-      isTrainer: requestedTrainer,
+      isTrainer: requestedTrainer || Boolean(stored && stored.isTrainer),
       reconnectToken: stored && stored.reconnectToken ? stored.reconnectToken : null,
     })
   }, [connectSocket])
