@@ -7,7 +7,7 @@
     "dev": "npm run build && node server.js",
     "start": "node server.js",
     "build": "npm --prefix frontend run build",
-    "postinstall": "npm --prefix frontend install",
+    "postinstall": "if [ -z \"$CI\" ] && [ \"$npm_config_omit\" != \"dev\" ]; then npm --prefix frontend install; fi",
     "gcp-build": "npm --prefix frontend ci --include=dev && npm --prefix frontend run build",
     "test": "node --test",
     "frontend:dev": "npm --prefix frontend run dev",

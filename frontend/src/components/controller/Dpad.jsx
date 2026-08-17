@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react'
 
 const BASE_SIZE = 208
+const FIT_PADDING_BOTTOM = 12
+const FIT_PADDING_RIGHT = 24
+const MIN_SCALE = 0.45
 const BTN_STYLE = "w-16 h-16 rounded-2xl bg-slate-800/90 active:bg-blue-600 border border-slate-700/80 shadow-lg flex items-center justify-center text-slate-100 active:scale-95 transition-all touch-none disabled:opacity-40 select-none cursor-pointer disabled:cursor-not-allowed"
 
 export function Dpad({ onMove, disabled = false }) {
@@ -38,8 +41,8 @@ export function Dpad({ onMove, disabled = false }) {
       const viewportHeight = window.innerHeight
       const viewportWidth = window.innerWidth
 
-      const spaceToBottom = viewportHeight - rect.top - 12
-      const spaceToRight = viewportWidth - 24
+      const spaceToBottom = viewportHeight - rect.top - FIT_PADDING_BOTTOM
+      const spaceToRight = viewportWidth - FIT_PADDING_RIGHT
 
       let fitScale = 1
       if (spaceToBottom < BASE_SIZE && spaceToBottom > 0) {
@@ -49,7 +52,7 @@ export function Dpad({ onMove, disabled = false }) {
         fitScale = Math.min(fitScale, spaceToRight / BASE_SIZE)
       }
 
-      const clamped = Math.max(0.45, Math.min(1.0, fitScale))
+      const clamped = Math.max(MIN_SCALE, Math.min(1.0, fitScale))
       setScale((prev) => (Math.abs(prev - clamped) > 0.01 ? clamped : prev))
     }
 
