@@ -1,7 +1,7 @@
 import { GridCanvas } from '../maze/GridCanvas'
 import { Compass, Map } from 'lucide-react'
 
-export function NavigatorView({ roleData, summary, status }) {
+export function NavigatorView({ roleData, summary }) {
   const maze = roleData?.maze
   const hazards = roleData?.hazards || []
   const ghosts = roleData?.ghosts || []

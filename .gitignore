@@ -4,3 +4,13 @@ frontend/.vite/
 session-logs/
 node-compile-cache/
 bun.lock
+
+.env
+.env.*
+!.env.example
+
+coverage/
+*.log
+.DS_Store
+.idea/
+.vscode/

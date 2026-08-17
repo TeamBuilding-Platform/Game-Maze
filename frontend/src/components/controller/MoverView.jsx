@@ -2,7 +2,7 @@ import { GridCanvas } from '../maze/GridCanvas'
 import { Dpad } from './Dpad'
 import { Shield, Key, Heart } from 'lucide-react'
 
-export function MoverView({ roleData, summary, timer, onSendInput, status }) {
+export function MoverView({ roleData, summary, onSendInput, status }) {
   const lives = summary?.livesRemaining ?? summary?.lives ?? 3
   const keysCollected = summary?.keysCollected ?? 0
   const assignedRoles = roleData?.assignedRoles || ['mover']

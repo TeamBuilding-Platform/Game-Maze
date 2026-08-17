@@ -5,7 +5,6 @@ import {
   Map,
   Eye,
   Sparkles,
-  Send,
   Play,
   Pause,
   RotateCcw,
@@ -21,7 +20,7 @@ import {
   AlertTriangle,
   Ghost,
 } from 'lucide-react'
-import { MessageType, CLARITY_TYPES, GameMode, GameStatus } from '../../protocol'
+import { MessageType, GameMode, GameStatus } from '../../protocol'
 import {
   MOI_COLORS,
   classifyMoiEvent,
@@ -42,10 +41,8 @@ export function TrainerDashboard({ stateSync, onSend }) {
   const phaseFlow = stateSync?.phaseFlow || {}
   const players = stateSync?.players || []
   const trainerMaze = stateSync?.trainerMaze || stateSync?.roleData?.trainerMaze
-  const trainerEvents = stateSync?.trainerEvents || stateSync?.roleData?.trainerEvents || []
   const trainerRoleViews = stateSync?.trainerRoleViews || stateSync?.roleData?.trainerRoleViews || []
   const aiSuggestions = stateSync?.aiSuggestions || stateSync?.roleData?.aiSuggestions || []
-  const highlightedIds = stateSync?.trainerHighlightEventIds || stateSync?.roleData?.trainerHighlightEventIds || []
   const followUpFocusedEventId = stateSync?.followUpFocusedEventId || null
   const log = stateSync?.log || []
   const followingPhase = phaseFlow?.followingPhase || null
@@ -98,27 +95,6 @@ export function TrainerDashboard({ stateSync, onSend }) {
     onSend({
       type: MessageType.PLAYER_INPUT,
       input: { action: 'trainer_remove_ghost' },
-    })
-  }
-
-  function toggleHighlight(eventId) {
-    onSend({
-      type: MessageType.PLAYER_INPUT,
-      input: { action: 'trainer_toggle_highlight', eventId },
-    })
-  }
-
-  function addClarityEvent(clarityType) {
-    onSend({
-      type: MessageType.PLAYER_INPUT,
-      input: { action: 'trainer_add_clarity_event', clarityType },
-    })
-  }
-
-  function shareReplay(eventId) {
-    onSend({
-      type: MessageType.PLAYER_INPUT,
-      input: { action: 'trainer_share_replay', eventId },
     })
   }
 

@@ -6,7 +6,6 @@ import {
   classifyMoiEvent,
   extractRoundsData,
   formatSeconds,
-  getMoiDisplayTime,
   getMoiLabel,
   getModeDisplayName,
   getModeFocusText,

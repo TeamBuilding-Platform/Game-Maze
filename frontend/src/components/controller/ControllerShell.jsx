@@ -178,15 +178,15 @@ export function ControllerShell({
       )}
 
       {currentRole === MazeRole.GUIDE && (
-        <GuideView roleData={roleData} summary={summary} status={status} onSendInput={handleSendInput} />
+        <GuideView roleData={roleData} summary={summary} />
       )}
 
       {currentRole === MazeRole.KEY_SEER && (
-        <KeySeerView roleData={roleData} summary={summary} status={status} onSendInput={handleSendInput} />
+        <KeySeerView roleData={roleData} summary={summary} />
       )}
 
       {currentRole === MazeRole.NAVIGATOR && (
-        <NavigatorView roleData={roleData} summary={summary} status={status} onSendInput={handleSendInput} />
+        <NavigatorView roleData={roleData} summary={summary} />
       )}
     </div>
   )

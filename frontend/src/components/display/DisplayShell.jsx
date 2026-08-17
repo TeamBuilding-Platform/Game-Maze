@@ -2,7 +2,7 @@ import { DisplayLobby } from './DisplayLobby'
 import { DisplayPlaying } from './DisplayPlaying'
 import { DisplayDebrief } from './DisplayDebrief'
 import { DisplayFollowUp } from './DisplayFollowUp'
-import { GameStatus, MessageType } from '../../protocol'
+import { GameStatus } from '../../protocol'
 
 export function DisplayShell({
   stateSync,
@@ -10,14 +10,12 @@ export function DisplayShell({
   joinUrl,
   qrCodeDataUrl,
   errorText,
-  onStartGame,
   onRestart,
   onSend,
 }) {
   const status = stateSync?.status || GameStatus.LOBBY
   const players = stateSync?.players || []
   const trainers = stateSync?.trainers || []
-  const ready = stateSync?.ready || false
 
   if (status === GameStatus.LOBBY) {
     return (
@@ -27,8 +25,6 @@ export function DisplayShell({
         qrCodeDataUrl={qrCodeDataUrl}
         players={players}
         trainers={trainers}
-        ready={ready}
-        onStartGame={onStartGame}
         errorText={errorText}
       />
     )

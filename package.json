@@ -1,15 +1,15 @@
 {
   "name": "teambuilding",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "QR-based TV host and mobile join flow for TeamBuilding sessions",
   "main": "server.js",
   "scripts": {
     "dev": "npm run build && node server.js",
     "start": "node server.js",
     "build": "npm --prefix frontend run build",
-    "postinstall": "if [ -z \"$CI\" ] && [ \"$npm_config_omit\" != \"dev\" ]; then npm --prefix frontend install; fi",
+    "postinstall": "node scripts/postinstall.js",
     "gcp-build": "npm --prefix frontend ci --include=dev && npm --prefix frontend run build",
-    "test": "node --test",
+    "test": "node --test \"test/*.test.js\"",
     "frontend:dev": "npm --prefix frontend run dev",
     "frontend:build": "npm --prefix frontend run build",
     "frontend:preview": "npm --prefix frontend run preview"
@@ -22,9 +22,14 @@
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Attic-at-Night/TeamBuilding/issues"
+    "url": "https://github.com/TeamBuilding-Platform/Game-Maze/issues"
   },
-  "homepage": "https://github.com/Attic-at-Night/TeamBuilding#readme",
+  "homepage": "https://github.com/TeamBuilding-Platform/Game-Maze#readme",
+  "engines": {
+    "node": ">=24 <25",
+    "npm": ">=11"
+  },
+  "packageManager": "npm@11.13.0",
   "dependencies": {
     "cors": "^2.8.6",
     "express": "^5.2.1",

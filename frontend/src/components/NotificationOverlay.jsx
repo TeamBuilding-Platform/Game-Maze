@@ -1,39 +1,39 @@
-import { useState, useEffect, useRef } from 'react'
+import { useCallback, useState, useEffect, useRef } from 'react'
 import {
   Skull,
   HeartCrack,
   Trophy,
-  Sparkles,
   Radio,
   Clock,
   Megaphone,
   AlertTriangle,
-  Flame,
-  CheckCircle2,
 } from 'lucide-react'
 
 export function NotificationOverlay({ stateSync, customNotification, onDismiss }) {
   const [notification, setNotification] = useState(null)
   const prevSyncRef = useRef(null)
   const timerRef = useRef(null)
+  const notificationTypeRef = useRef(null)
 
   // Trigger notification with auto-dismiss unless persistent
-  function triggerNotification(noti) {
+  const triggerNotification = useCallback((noti) => {
     if (timerRef.current) {
       clearTimeout(timerRef.current)
       timerRef.current = null
     }
 
+    notificationTypeRef.current = noti.type || null
     setNotification(noti)
 
     if (!noti.persistent) {
       const duration = noti.duration || 5000
       timerRef.current = setTimeout(() => {
+        notificationTypeRef.current = null
         setNotification(null)
         if (onDismiss) onDismiss()
       }, duration)
     }
-  }
+  }, [onDismiss])
 
   // Monitor stateSync for state transitions
   useEffect(() => {
@@ -126,7 +126,7 @@ export function NotificationOverlay({ stateSync, customNotification, onDismiss }
       (currStatus === 'follow_up' && prevStatus !== 'follow_up') ||
       (currPhaseType === 'follow_up' && prevPhaseType !== 'follow_up')
     ) {
-      if (notification?.type !== 'win') {
+      if (notificationTypeRef.current !== 'win') {
         triggerNotification({
           id: `followup-${Date.now()}`,
           type: 'follow_up',
@@ -169,14 +169,14 @@ export function NotificationOverlay({ stateSync, customNotification, onDismiss }
     }
 
     prevSyncRef.current = curr
-  }, [stateSync])
+  }, [stateSync, triggerNotification])
 
   // Custom manual notification handler
   useEffect(() => {
     if (customNotification) {
       triggerNotification(customNotification)
     }
-  }, [customNotification])
+  }, [customNotification, triggerNotification])
 
   if (!notification) return null
 
@@ -230,15 +230,6 @@ export function NotificationOverlay({ stateSync, customNotification, onDismiss }
 
   const currentStyle = variantStyles[notification.variant] || variantStyles.info
   const IconComponent = notification.icon || AlertTriangle
-
-  function handleClose() {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current)
-      timerRef.current = null
-    }
-    setNotification(null)
-    if (onDismiss) onDismiss()
-  }
 
   return (
     <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4 pointer-events-auto transition-all duration-300 animate-in fade-in slide-in-from-top-6">

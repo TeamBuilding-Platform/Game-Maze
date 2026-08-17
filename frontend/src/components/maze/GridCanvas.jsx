@@ -129,7 +129,6 @@ export function GridCanvas({
         ghosts = [],
         lifePickups = [],
         reached = false,
-        pendingReset = null,
         fogRadius = null,
         accentColor = '#3b82f6',
       } = props

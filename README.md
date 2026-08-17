@@ -10,13 +10,19 @@ npm install
 npm start
 ```
 
+The root install also installs the frontend dependencies and creates the
+production build. CI and production-only installs skip that local convenience
+step and build the frontend explicitly.
+
 Then open:
 - `http://localhost:3000/` on the TV/browser — this is the **display** screen
 - Scan the QR code from a phone to open the **controller** screen
 
-## React frontend scaffold (for AI Studio overhaul)
+## React frontend
 
-The repo now includes `frontend/` (React + Vite) as a separate frontend workspace that talks to the existing backend.
+`frontend/` is an intentional React + Vite boundary around the browser UI. It
+keeps display, player-controller, and trainer-view work focused while the root
+package owns the backend and shared session protocol.
 
 ```bash
 npm run frontend:dev
@@ -31,6 +37,8 @@ npm run dev
 ```
 
 Backend contract details for the new UI live in `frontend/README.md`.
+Package ownership, client visibility rules, and the manager-extraction roadmap
+are documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Host online
 
@@ -64,7 +72,8 @@ WS_DISCONNECT_GRACE_MS=60000
 
 This repository includes a CI/CD workflow at `.github/workflows/deploy.yml`.
 
-- On pull requests: it installs dependencies, runs `npm test`, and packages a release artifact.
+- On pull requests: it installs dependencies, runs backend and frontend tests,
+  enforces zero-warning frontend lint, builds the UI, and packages a release artifact.
 - On pushes to `main` (or manual `workflow_dispatch`): it runs the same CI steps, then deploys the artifact to a VPS over SSH.
 
 ### Required repository secrets
@@ -281,6 +290,7 @@ src/
     sessionIdentity.js Session/reconnect token helpers
   trainer/
     clarityEvents.js   Trainer clarity-event validation
+    sessionInsights.js Derived observer signals, replay snippets, AI suggestions
   maze.js              Maze generation, movement, ghosts
   network.js           Local IP / SSID detection for the QR code URL
   protocol.js          Shared message type / game status / client role constants
