@@ -1,11 +1,13 @@
 {
   "name": "teambuilding",
-  "version": "0.1.3",
+  "version": "0.2.4",
   "description": "QR-based TV host and mobile join flow for TeamBuilding sessions",
   "main": "server.js",
   "scripts": {
+    "dev": "npm run build && node server.js",
     "start": "node server.js",
     "build": "npm --prefix frontend run build",
+    "postinstall": "if [ -z \"$CI\" ] && [ \"$npm_config_omit\" != \"dev\" ]; then npm --prefix frontend install; fi",
     "gcp-build": "npm --prefix frontend ci --include=dev && npm --prefix frontend run build",
     "test": "node --test",
     "frontend:dev": "npm --prefix frontend run dev",
