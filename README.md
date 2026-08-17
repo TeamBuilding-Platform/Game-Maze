@@ -163,8 +163,9 @@ Abandoned sessions no longer live forever. If a session has no connected display
 the server automatically closes it after 10 minutes. A returning display or controller reconnect cancels that
 pending cleanup window.
 
-Controllers now receive a reconnect token in `client_registered`, and the client stores it locally to support
-automatic/manual rejoin of the same player slot when the session still exists. Reconnect handling is forgiving:
+Controllers now receive a reconnect token in `client_registered`, and the client stores it per-tab
+(`sessionStorage`) so each tab holds its own player identity - multiple tabs on one device can play as
+separate players while same-tab reloads still auto-resume. Reconnect handling is forgiving:
 
 - A join carrying a stale or unknown `reconnectToken` is never rejected; the server falls back to a normal join
   (claiming an open disconnected slot mid-game, inheriting its slot-bound roles) and issues a fresh token.
