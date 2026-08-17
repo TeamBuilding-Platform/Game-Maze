@@ -42,12 +42,14 @@ const MessageType = {
   RETURN_TO_LOBBY: 'return_to_lobby',
   PLAYER_INPUT: 'player_input',
   RESYNC_REQUEST: 'resync_request',
+  PING: 'ping',
 
   // Server → Client
   CLIENT_REGISTERED: 'client_registered',
   STATE_SYNC: 'state_sync',
   JOIN_ERROR: 'join_error',
   SESSION_CLOSED: 'session_closed',
+  PONG: 'pong',
 };
 
 const PROTOCOL_VERSION = 1;

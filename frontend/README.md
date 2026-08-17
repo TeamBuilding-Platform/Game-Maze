@@ -52,12 +52,14 @@ The scaffold keeps protocol constants in `src/protocol.js` for React usage.
 - `followup_end` `{}`
 - `player_input` `{ input }`
 - `resync_request` `{}`
+- `ping` `{}` (app-level heartbeat)
 
 ### Server -> client messages
 
 - `client_registered`
 - `state_sync`
 - `join_error` (includes `code`)
+- `pong` (heartbeat reply)
 - `session_closed` (legacy event)
 
 Server envelopes include protocol version `v` and message `type`.

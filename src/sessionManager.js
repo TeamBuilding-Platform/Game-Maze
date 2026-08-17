@@ -24,6 +24,7 @@ const VICTORY_FEEDBACK_MS = 2500;
 const DEFAULT_ABANDONED_SESSION_TIMEOUT_MS = gameplaySettings.session.abandonedTimeoutMs;
 const MOVEMENT_PAUSE_THRESHOLD_MS = 15 * 1000;
 const DEFAULT_GAME_MODE = GameMode.COMMUNICATION_CLARITY;
+const WS_READY_STATE_OPEN = 1;
 
 function sendJson(socket, payload) {
   if (!socket || typeof socket.send !== 'function') {
@@ -1038,12 +1039,15 @@ class SessionManager {
     const reconnectToken = String(name && typeof name === 'object' ? name.reconnectToken || '' : '') || '';
     const requestedTrainer = Boolean(name && typeof name === 'object' && name.requestedTrainer);
     const playerNameInput = name && typeof name === 'object' ? name.name : name;
+    const playerName = String(playerNameInput || 'Player').trim() || 'Player';
 
     if (reconnectToken) {
       const reconnected = this._reconnectController(sessionId, session, socket, reconnectToken);
       if (reconnected !== null) {
         return reconnected;
       }
+      // Token was stale (slot cleaned up, server restarted, ...). Fall through to a
+      // normal join so the player is never dead-ended; a fresh token is issued below.
     }
 
     if (!session.display) {
@@ -1059,6 +1063,10 @@ class SessionManager {
     const isTrainer = requestedTrainer;
     if (!isTrainer) {
       if (session.state.status === GameStatus.LOBBY) {
+        const takeoverSlot = this._findTakeoverLobbySlot(session, playerName);
+        if (takeoverSlot) {
+          return this._takeOverParticipant(sessionId, session, socket, takeoverSlot, playerName);
+        }
         if (this._getGameplayControllers(session).length >= MAX_PLAYERS) {
           this._log('warn', 'Rejected controller join because session is full.', {
             sessionId,
@@ -1072,7 +1080,6 @@ class SessionManager {
       } else {
         const openSlot = this._findOpenGameplaySlot(session);
         if (openSlot) {
-          const playerName = String(playerNameInput || 'Player').trim() || 'Player';
           const reconnectTokenForPlayer = makeReconnectToken();
           if (openSlot.reconnectToken) {
             session.reconnectTokens.delete(openSlot.reconnectToken);
@@ -1122,7 +1129,6 @@ class SessionManager {
 
     const playerId = crypto.randomUUID();
     const reconnectTokenForPlayer = makeReconnectToken();
-    const playerName = String(playerNameInput || 'Player').trim() || 'Player';
     const participant = {
       id: playerId,
       name: playerName,
@@ -2225,6 +2231,16 @@ class SessionManager {
     }
 
     if (meta.role === ClientRole.CONTROLLER) {
+      const controllerEntry = session.controllers.get(meta.playerId);
+      if (controllerEntry && controllerEntry.socket && controllerEntry.socket !== socket) {
+        // A newer socket already owns this player slot; don't tear it down.
+        this._log('info', 'Skipped controller disconnect cleanup for replaced socket.', {
+          sessionId: meta.sessionId,
+          playerId: meta.playerId,
+          reason,
+        });
+        return;
+      }
       session.controllers.delete(meta.playerId);
 
       if (session.state.status === GameStatus.LOBBY) {
@@ -2427,39 +2443,101 @@ class SessionManager {
     return null;
   }
 
+  _detachStaleSocket(socket, message) {
+    this.cancelDisconnectGrace(socket);
+    sendJoinError(socket, message, ErrorCode.RECONNECT_REPLACED);
+    socket._disconnectFinalized = true;
+    socket.meta = null;
+    try {
+      socket.close();
+    } catch {
+      // Ignore close failures on stale sockets.
+    }
+  }
+
+  _findTakeoverLobbySlot(session, playerName) {
+    const normalizedName = String(playerName || '').trim().toLowerCase();
+    if (!normalizedName) {
+      return null;
+    }
+    for (const controller of session.controllers.values()) {
+      if (controller.isTrainer) {
+        continue;
+      }
+      if (String(controller.name || '').trim().toLowerCase() !== normalizedName) {
+        continue;
+      }
+      const controllerSocket = controller.socket;
+      const socketGone = !controllerSocket
+        || controllerSocket._disconnectTimer
+        || (typeof controllerSocket.readyState === 'number' && controllerSocket.readyState !== WS_READY_STATE_OPEN);
+      if (socketGone) {
+        return session.participants.get(controller.id) || null;
+      }
+    }
+    return null;
+  }
+
+  _takeOverParticipant(sessionId, session, socket, participant, playerName) {
+    const existingController = session.controllers.get(participant.id);
+    if (existingController && existingController.socket && existingController.socket !== socket) {
+      this._detachStaleSocket(existingController.socket, 'This player rejoined from another connection.');
+    }
+
+    if (participant.reconnectToken) {
+      session.reconnectTokens.delete(participant.reconnectToken);
+    }
+    const reconnectTokenForPlayer = makeReconnectToken();
+    participant.name = playerName;
+    participant.reconnectToken = reconnectTokenForPlayer;
+    session.reconnectTokens.set(reconnectTokenForPlayer, participant.id);
+    session.controllers.set(participant.id, { socket, ...participant });
+    socket.meta = { role: ClientRole.CONTROLLER, sessionId, playerId: participant.id, isTrainer: false };
+    this._cancelAbandonedSessionCleanup(sessionId, 'controller_joined');
+    this._log('info', 'Controller took over lobby slot with matching name.', {
+      sessionId,
+      playerId: participant.id,
+      playerName,
+      controllerCount: session.controllers.size,
+      participantCount: session.participants.size,
+      status: session.state.status,
+    });
+
+    sendJson(socket, {
+      type: MessageType.CLIENT_REGISTERED,
+      role: ClientRole.CONTROLLER,
+      sessionId,
+      playerId: participant.id,
+      isTrainer: false,
+      reconnectToken: reconnectTokenForPlayer,
+      reconnected: true,
+    });
+
+    session.state.players = this._getPlayers(session);
+    this.broadcastState(sessionId);
+    return true;
+  }
+
   _reconnectController(sessionId, session, socket, reconnectToken) {
     const existingPlayerId = session.reconnectTokens.get(reconnectToken);
     if (!existingPlayerId) {
-      this._log('warn', 'Rejected reconnect with invalid token.', { sessionId });
-      sendJoinError(socket, 'Reconnect token is invalid.', ErrorCode.INVALID_RECONNECT_TOKEN);
-      return false;
+      this._log('warn', 'Reconnect token unknown; falling back to fresh join.', { sessionId });
+      return null;
     }
 
     const participant = session.participants.get(existingPlayerId);
     if (!participant) {
-      this._log('warn', 'Rejected reconnect because slot is unavailable.', {
+      this._log('warn', 'Reconnect slot unavailable; falling back to fresh join.', {
         sessionId,
         playerId: existingPlayerId,
       });
-      sendJoinError(socket, 'Reconnect slot is unavailable.', ErrorCode.RECONNECT_SLOT_UNAVAILABLE);
-      return false;
+      session.reconnectTokens.delete(reconnectToken);
+      return null;
     }
 
     const existingController = session.controllers.get(existingPlayerId);
     if (existingController && existingController.socket && existingController.socket !== socket) {
-      this.cancelDisconnectGrace(existingController.socket);
-      sendJoinError(
-        existingController.socket,
-        'This player joined from another device.',
-        ErrorCode.RECONNECT_REPLACED
-      );
-      existingController.socket._disconnectFinalized = true;
-      existingController.socket.meta = null;
-      try {
-        existingController.socket.close();
-      } catch {
-        // Ignore close failures on stale sockets.
-      }
+      this._detachStaleSocket(existingController.socket, 'This player joined from another device.');
     }
 
     this._cancelAbandonedSessionCleanup(sessionId, 'controller_reconnected');

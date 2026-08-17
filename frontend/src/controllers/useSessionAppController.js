@@ -4,6 +4,11 @@ import { createGameSocket, getBackendHttpOrigin } from '../wsClient'
 import { getMockStateForView } from '../mockData'
 import { loadReconnectState, saveReconnectState, clearReconnectState } from '../reconnectStorage'
 
+const RECONNECT_BASE_DELAY_MS = 500
+const RECONNECT_MAX_DELAY_MS = 5000
+const CLIENT_HEARTBEAT_INTERVAL_MS = 5000
+const STALE_CONNECTION_MS = 12000
+
 function inferRoleFromPath(pathname) {
   if (pathname.startsWith('/join')) {
     return 'controller'
@@ -34,10 +39,29 @@ export function useSessionAppController() {
   const [errorText, setErrorText] = useState('')
   const [isReconnecting, setIsReconnecting] = useState(false)
   const connectionIdRef = useRef(0)
+  const retryTimerRef = useRef(null)
+  const retryAttemptRef = useRef(0)
+  const connectionStateRef = useRef('disconnected')
+  const autoResumeAttemptedRef = useRef(false)
+
+  useEffect(() => {
+    connectionStateRef.current = connectionState
+  }, [connectionState])
+
+  useEffect(() => () => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current)
+      retryTimerRef.current = null
+    }
+  }, [])
 
   const backendOrigin = useMemo(() => getBackendHttpOrigin(), [])
 
   const closeSocket = useCallback(() => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current)
+      retryTimerRef.current = null
+    }
     if (socketHandle) {
       socketHandle.close()
       setSocketHandle(null)
@@ -85,6 +109,21 @@ export function useSessionAppController() {
       closeSocket()
       setErrorText('')
       setConnectionState('connecting')
+      if (reconnectToken) {
+        setIsReconnecting(true)
+      }
+
+      const playerNameText = (typeof name === 'string' ? name : String(name ?? '')).trim() || 'Player'
+      let joinRejected = false
+      let lastMessageAt = Date.now()
+      let heartbeatTimer = null
+
+      const stopHeartbeat = () => {
+        if (heartbeatTimer) {
+          clearInterval(heartbeatTimer)
+          heartbeatTimer = null
+        }
+      }
 
       const handle = createGameSocket({
         onOpen(send) {
@@ -92,6 +131,21 @@ export function useSessionAppController() {
             return
           }
           setConnectionState('connected')
+          lastMessageAt = Date.now()
+          // App-level heartbeat: browsers can't see WS protocol pings, so send
+          // our own PING and force-close half-dead sockets to trigger reconnect.
+          heartbeatTimer = setInterval(() => {
+            if (connectionIdRef.current !== connectionId) {
+              stopHeartbeat()
+              return
+            }
+            if (Date.now() - lastMessageAt > STALE_CONNECTION_MS) {
+              stopHeartbeat()
+              handle.close()
+              return
+            }
+            handle.send({ type: MessageType.PING })
+          }, CLIENT_HEARTBEAT_INTERVAL_MS)
           if (mode === 'display') {
             send({ type: MessageType.DISPLAY_REGISTER, sessionId: activeSession })
           } else if (reconnectToken) {
@@ -99,14 +153,14 @@ export function useSessionAppController() {
             send({
               type: MessageType.CONTROLLER_JOIN,
               sessionId: activeSession,
-              name: (typeof name === 'string' ? name : String(name ?? '')).trim() || 'Player',
+              name: playerNameText,
               reconnectToken,
             })
           } else {
             send({
               type: MessageType.CONTROLLER_JOIN,
               sessionId: activeSession,
-              name: name.trim() || 'Player',
+              name: playerNameText,
               requestedTrainer: isTrainer,
               isTrainer,
             })
@@ -116,18 +170,21 @@ export function useSessionAppController() {
           if (connectionIdRef.current !== connectionId) {
             return
           }
+          lastMessageAt = Date.now()
           if (message.type === MessageType.CLIENT_REGISTERED) {
+            retryAttemptRef.current = 0
             if (message.reconnectToken) {
               saveReconnectState(activeSession, {
                 playerId: message.playerId || null,
                 reconnectToken: message.reconnectToken,
-                name: name.trim() || 'Player',
+                name: playerNameText,
               })
             }
             setIsReconnecting(false)
           } else if (message.type === MessageType.STATE_SYNC) {
             setStateSync(message.state || null)
           } else if (message.type === MessageType.JOIN_ERROR) {
+            joinRejected = true
             const code = message.code || ''
             const isReconnectError = (
               code === ErrorCode.INVALID_RECONNECT_TOKEN ||
@@ -143,21 +200,37 @@ export function useSessionAppController() {
           }
         },
         onClose() {
+          stopHeartbeat()
           if (connectionIdRef.current !== connectionId) {
             return
           }
           setConnectionState('disconnected')
 
-          // Attempt silent reconnect using stored token
+          if (mode !== 'controller') {
+            return
+          }
+          if (joinRejected) {
+            // The server explicitly rejected this join; don't loop retries.
+            setIsReconnecting(false)
+            return
+          }
+
+          // Attempt silent reconnect using stored token, with backoff.
           const stored = loadReconnectState(activeSession)
           if (stored && stored.reconnectToken) {
+            const attempt = retryAttemptRef.current
+            retryAttemptRef.current = attempt + 1
+            const delay = Math.min(RECONNECT_MAX_DELAY_MS, RECONNECT_BASE_DELAY_MS * 2 ** attempt)
             setIsReconnecting(true)
             setErrorText('')
-            connectSocket({
-              targetSessionId: activeSession,
-              name: stored.name || 'Player',
-              reconnectToken: stored.reconnectToken,
-            })
+            retryTimerRef.current = setTimeout(() => {
+              retryTimerRef.current = null
+              connectSocket({
+                targetSessionId: activeSession,
+                name: stored.name || 'Player',
+                reconnectToken: stored.reconnectToken,
+              })
+            }, delay)
           } else {
             setIsReconnecting(false)
           }
@@ -201,13 +274,60 @@ export function useSessionAppController() {
     }
   }, [activeView, mode, sessionId, connectionState, createNewSession, connectSocket])
 
+  // Silent auto-resume: same tab, session in URL, stored reconnect token → skip the join form.
+  useEffect(() => {
+    if (autoResumeAttemptedRef.current) return
+    if (mode !== 'controller' || activeView !== 'live' || !sessionId) return
+    autoResumeAttemptedRef.current = true
+    const stored = loadReconnectState(sessionId)
+    if (stored && stored.reconnectToken) {
+      setPlayerName(stored.name || '')
+      connectSocket({
+        targetSessionId: sessionId,
+        name: stored.name || 'Player',
+        reconnectToken: stored.reconnectToken,
+      })
+    }
+  }, [mode, activeView, sessionId, connectSocket])
+
+  // Reconnect immediately when the network returns or the tab becomes visible again.
+  useEffect(() => {
+    if (mode !== 'controller' || !sessionId) return undefined
+
+    const attemptResume = () => {
+      if (document.visibilityState === 'hidden') return
+      if (connectionStateRef.current !== 'disconnected') return
+      const stored = loadReconnectState(sessionId)
+      if (stored && stored.reconnectToken) {
+        retryAttemptRef.current = 0
+        connectSocket({
+          targetSessionId: sessionId,
+          name: stored.name || 'Player',
+          reconnectToken: stored.reconnectToken,
+        })
+      }
+    }
+
+    window.addEventListener('online', attemptResume)
+    document.addEventListener('visibilitychange', attemptResume)
+    return () => {
+      window.removeEventListener('online', attemptResume)
+      document.removeEventListener('visibilitychange', attemptResume)
+    }
+  }, [mode, sessionId, connectSocket])
+
   const handleControllerJoin = useCallback(({ sessionId: joinSession, name, requestedTrainer }) => {
     setSessionId(joinSession)
     setPlayerName(name)
+    retryAttemptRef.current = 0
+    // Reuse a stored identity for this session so a form rejoin never forks a
+    // duplicate player. Explicit trainer requests always join fresh.
+    const stored = requestedTrainer ? null : loadReconnectState(joinSession)
     connectSocket({
       targetSessionId: joinSession,
       name,
       isTrainer: requestedTrainer,
+      reconnectToken: stored && stored.reconnectToken ? stored.reconnectToken : null,
     })
   }, [connectSocket])
 

@@ -132,9 +132,11 @@ phase flow ───────→ phase 1 (15:00) → phase 2 (10:00) → phas
 | Client → Server | `followup_end` | Display or trainer ends follow-up; the last follow-up restarts a fresh round, while terminal failures end the session |
 | Client → Server | `player_input` | Controller sends an action (e.g. `{ action: "buzz" }`) |
 | Client → Server | `resync_request` | Any client requests a full state re-send (reconnect) |
+| Client → Server | `ping` | App-level heartbeat; clients use it to detect half-dead connections |
 | Server → Client | `client_registered` | Acknowledges display/controller registration |
 | Server → Client | `state_sync` | Authoritative game state broadcast to all clients |
 | Server → Client | `join_error` | Registration or join failure |
+| Server → Client | `pong` | Reply to a client `ping` |
 | Server → Client | `session_closed` | (Legacy) Session ended and was removed; currently not emitted by the server |
 
 All server-sent WebSocket messages now include protocol version `v`.
@@ -162,7 +164,15 @@ the server automatically closes it after 10 minutes. A returning display or cont
 pending cleanup window.
 
 Controllers now receive a reconnect token in `client_registered`, and the client stores it locally to support
-automatic/manual rejoin of the same player slot when the session still exists.
+automatic/manual rejoin of the same player slot when the session still exists. Reconnect handling is forgiving:
+
+- A join carrying a stale or unknown `reconnectToken` is never rejected; the server falls back to a normal join
+  (claiming an open disconnected slot mid-game, inheriting its slot-bound roles) and issues a fresh token.
+- In the lobby, a fresh join whose name matches a player whose socket is dead or in the disconnect grace window
+  takes over that player slot instead of creating a duplicate.
+- The frontend silently auto-resumes in the same tab (stored token + `?session=` in the URL — no name or session
+  re-entry), retries with exponential backoff, and reconnects immediately when the network returns or the tab
+  becomes visible. A client-side `ping`/`pong` heartbeat force-closes half-dead sockets so reconnects start fast.
 
 The server also now maintains authoritative timer state with `idle`, `running`, `stopped`, and `expired`
 lifecycle states. Timer transitions are included in synchronized state and persisted session exports.
