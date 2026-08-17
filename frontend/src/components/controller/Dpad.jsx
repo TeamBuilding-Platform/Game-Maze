@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react'
 
+const BASE_SIZE = 208
+const BTN_STYLE = "w-16 h-16 rounded-2xl bg-slate-800/90 active:bg-blue-600 border border-slate-700/80 shadow-lg flex items-center justify-center text-slate-100 active:scale-95 transition-all touch-none disabled:opacity-40 select-none cursor-pointer disabled:cursor-not-allowed"
+
 export function Dpad({ onMove, disabled = false }) {
   const containerRef = useRef(null)
   const [scale, setScale] = useState(1)
-  const unscaledDpadSizePx = 208
-  const viewportPaddingBottomPx = 12
-  const viewportPaddingRightPx = 24
-  const minimumScale = 0.45
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -39,18 +38,18 @@ export function Dpad({ onMove, disabled = false }) {
       const viewportHeight = window.innerHeight
       const viewportWidth = window.innerWidth
 
-      const spaceToBottom = viewportHeight - rect.top - viewportPaddingBottomPx
-      const spaceToRight = viewportWidth - viewportPaddingRightPx
+      const spaceToBottom = viewportHeight - rect.top - 12
+      const spaceToRight = viewportWidth - 24
 
       let fitScale = 1
-      if (spaceToBottom < unscaledDpadSizePx && spaceToBottom > 0) {
-        fitScale = Math.min(fitScale, spaceToBottom / unscaledDpadSizePx)
+      if (spaceToBottom < BASE_SIZE && spaceToBottom > 0) {
+        fitScale = Math.min(fitScale, spaceToBottom / BASE_SIZE)
       }
-      if (spaceToRight < unscaledDpadSizePx && spaceToRight > 0) {
-        fitScale = Math.min(fitScale, spaceToRight / unscaledDpadSizePx)
+      if (spaceToRight < BASE_SIZE && spaceToRight > 0) {
+        fitScale = Math.min(fitScale, spaceToRight / BASE_SIZE)
       }
 
-      const clamped = Math.max(minimumScale, Math.min(1.0, fitScale))
+      const clamped = Math.max(0.45, Math.min(1.0, fitScale))
       setScale((prev) => (Math.abs(prev - clamped) > 0.01 ? clamped : prev))
     }
 
@@ -78,21 +77,19 @@ export function Dpad({ onMove, disabled = false }) {
     }
   }, [])
 
-  const btnStyle = "w-16 h-16 rounded-2xl bg-slate-800/90 active:bg-blue-600 border border-slate-700/80 shadow-lg flex items-center justify-center text-slate-100 active:scale-95 transition-all touch-none disabled:opacity-40 select-none cursor-pointer disabled:cursor-not-allowed"
-
   return (
     <div
       ref={containerRef}
       style={{
-        width: `${baseSize * scale}px`,
-        height: `${baseSize * scale}px`,
+        width: `${BASE_SIZE * scale}px`,
+        height: `${BASE_SIZE * scale}px`,
       }}
       className="relative mx-auto my-1 flex items-center justify-center select-none shrink-0 transition-all duration-150"
     >
       <div
         style={{
-          width: `${baseSize}px`,
-          height: `${baseSize}px`,
+          width: `${BASE_SIZE}px`,
+          height: `${BASE_SIZE}px`,
           transform: `scale(${scale})`,
           transformOrigin: 'center center',
         }}
@@ -103,7 +100,7 @@ export function Dpad({ onMove, disabled = false }) {
           type="button"
           disabled={disabled}
           onClick={() => onMove('n')}
-          className={`${btnStyle} absolute top-0 left-1/2 -translate-x-1/2`}
+          className={`${BTN_STYLE} absolute top-0 left-1/2 -translate-x-1/2`}
           aria-label="Move North"
         >
           <ArrowUp className="w-8 h-8" />
@@ -114,7 +111,7 @@ export function Dpad({ onMove, disabled = false }) {
           type="button"
           disabled={disabled}
           onClick={() => onMove('e')}
-          className={`${btnStyle} absolute right-0 top-1/2 -translate-y-1/2`}
+          className={`${BTN_STYLE} absolute right-0 top-1/2 -translate-y-1/2`}
           aria-label="Move East"
         >
           <ArrowRight className="w-8 h-8" />
@@ -125,7 +122,7 @@ export function Dpad({ onMove, disabled = false }) {
           type="button"
           disabled={disabled}
           onClick={() => onMove('s')}
-          className={`${btnStyle} absolute bottom-0 left-1/2 -translate-x-1/2`}
+          className={`${BTN_STYLE} absolute bottom-0 left-1/2 -translate-x-1/2`}
           aria-label="Move South"
         >
           <ArrowDown className="w-8 h-8" />
@@ -136,7 +133,7 @@ export function Dpad({ onMove, disabled = false }) {
           type="button"
           disabled={disabled}
           onClick={() => onMove('w')}
-          className={`${btnStyle} absolute left-0 top-1/2 -translate-y-1/2`}
+          className={`${BTN_STYLE} absolute left-0 top-1/2 -translate-y-1/2`}
           aria-label="Move West"
         >
           <ArrowLeft className="w-8 h-8" />

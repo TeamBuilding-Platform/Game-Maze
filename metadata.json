@@ -1,0 +1,6 @@
+{
+  "name": "TeamBuilding Maze Game",
+  "description": "Collaborative multiplayer maze game with real-time roles, QR join flow, and trainer debrief dashboard",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

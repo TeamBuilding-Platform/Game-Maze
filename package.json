@@ -4,8 +4,10 @@
   "description": "QR-based TV host and mobile join flow for TeamBuilding sessions",
   "main": "server.js",
   "scripts": {
+    "dev": "npm run build && node server.js",
     "start": "node server.js",
     "build": "npm --prefix frontend run build",
+    "postinstall": "npm --prefix frontend install",
     "gcp-build": "npm --prefix frontend ci --include=dev && npm --prefix frontend run build",
     "test": "node --test",
     "frontend:dev": "npm --prefix frontend run dev",
