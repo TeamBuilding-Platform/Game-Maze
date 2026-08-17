@@ -1620,6 +1620,56 @@ test('controller can replace a disconnected gameplay slot after game start', (t)
   assert.equal(sync.state.viewerRole, latestState(originalController).viewerRole);
 });
 
+test('fresh mid-game join during grace claims the disconnected gameplay slot', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+
+  const { manager, controllers, sessionId } = bootstrapGame(2);
+  const originalController = findControllerByRole(controllers, MazeRole.MOVER);
+  const replacementController = createFakeSocket();
+  const registered = originalController.sent.find((m) => m.type === MessageType.CLIENT_REGISTERED);
+  const originalRole = latestState(originalController).viewerRole;
+
+  manager.beginDisconnectGrace(originalController, 'socket_closed', 60000);
+
+  assert.equal(manager.joinController(sessionId, { name: 'P1' }, replacementController), true);
+
+  const replacementRegistration = replacementController.sent.find((m) => m.type === MessageType.CLIENT_REGISTERED);
+  assert.equal(replacementRegistration.playerId, registered.playerId);
+  assert.equal(replacementRegistration.reconnected, false);
+
+  const sync = replacementController.sent.at(-1);
+  assert.equal(sync.type, MessageType.STATE_SYNC);
+  assert.equal(sync.state.viewerRole, originalRole);
+
+  const session = manager.sessions.get(sessionId);
+  assert.equal(session.controllers.get(registered.playerId).socket, replacementController);
+  assert.equal([...session.participants.values()].filter((p) => !p.isTrainer).length, 2);
+  assert.equal(originalController.closed, true);
+
+  t.mock.timers.tick(60000);
+  assert.equal(session.controllers.get(registered.playerId).socket, replacementController);
+});
+
+test('fresh mid-game join with all live gameplay sockets creates another player', () => {
+  const { manager, controllers, sessionId } = bootstrapGame(2);
+  const originalController = findControllerByRole(controllers, MazeRole.MOVER);
+  const registered = originalController.sent.find((m) => m.type === MessageType.CLIENT_REGISTERED);
+  const thirdController = createFakeSocket();
+
+  controllers.forEach((controller) => {
+    controller.readyState = 1;
+  });
+
+  assert.equal(manager.joinController(sessionId, { name: 'P1' }, thirdController), true);
+
+  const thirdRegistration = thirdController.sent.find((m) => m.type === MessageType.CLIENT_REGISTERED);
+  assert.notEqual(thirdRegistration.playerId, registered.playerId);
+
+  const session = manager.sessions.get(sessionId);
+  assert.equal([...session.participants.values()].filter((p) => !p.isTrainer).length, 3);
+  assert.equal(session.controllers.get(registered.playerId).socket, originalController);
+});
+
 test('trainer can join while game is already in progress', () => {
   const { manager, sessionId } = bootstrapGame(2);
   const secondTrainer = createFakeSocket();

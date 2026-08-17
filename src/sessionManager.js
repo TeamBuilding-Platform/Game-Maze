@@ -1078,8 +1078,12 @@ class SessionManager {
           return false;
         }
       } else {
-        const openSlot = this._findOpenGameplaySlot(session);
+        const openSlot = this._findOpenGameplaySlot(session, playerName);
         if (openSlot) {
+          const existingController = session.controllers.get(openSlot.id);
+          if (existingController && existingController.socket && existingController.socket !== socket) {
+            this._detachStaleSocket(existingController.socket, 'This player rejoined from another connection.');
+          }
           const reconnectTokenForPlayer = makeReconnectToken();
           if (openSlot.reconnectToken) {
             session.reconnectTokens.delete(openSlot.reconnectToken);
@@ -2431,16 +2435,33 @@ class SessionManager {
     }
   }
 
-  _findOpenGameplaySlot(session) {
+  _findOpenGameplaySlot(session, playerName = '') {
+    const normalizedName = String(playerName || '').trim().toLowerCase();
+    let fallbackSlot = null;
     for (const participant of session.participants.values()) {
       if (participant.isTrainer) {
         continue;
       }
-      if (!session.controllers.has(participant.id)) {
+      const controller = session.controllers.get(participant.id);
+      const claimable = !controller || this._isControllerSocketClaimable(controller.socket);
+      if (!claimable) {
+        continue;
+      }
+      const slotName = String((controller && controller.name) || participant.name || '').trim().toLowerCase();
+      if (normalizedName && slotName === normalizedName) {
         return participant;
       }
+      if (!fallbackSlot) {
+        fallbackSlot = participant;
+      }
     }
-    return null;
+    return fallbackSlot;
+  }
+
+  _isControllerSocketClaimable(controllerSocket) {
+    return !controllerSocket
+      || controllerSocket._disconnectTimer
+      || (typeof controllerSocket.readyState === 'number' && controllerSocket.readyState !== WS_READY_STATE_OPEN);
   }
 
   _detachStaleSocket(socket, message) {
@@ -2467,11 +2488,7 @@ class SessionManager {
       if (String(controller.name || '').trim().toLowerCase() !== normalizedName) {
         continue;
       }
-      const controllerSocket = controller.socket;
-      const socketGone = !controllerSocket
-        || controllerSocket._disconnectTimer
-        || (typeof controllerSocket.readyState === 'number' && controllerSocket.readyState !== WS_READY_STATE_OPEN);
-      if (socketGone) {
+      if (this._isControllerSocketClaimable(controller.socket)) {
         return session.participants.get(controller.id) || null;
       }
     }
