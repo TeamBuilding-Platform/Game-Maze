@@ -650,6 +650,72 @@ test('hazard hit preserves unlimited lives and triggers a reset', () => {
   }
 });
 
+test('hazard death rotates roles in collaboration mode', () => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    const manager = new SessionManager();
+    const display = createFakeSocket();
+    const { sessionId } = manager.createSession('http://localhost:3000');
+    manager.registerDisplay(sessionId, display);
+
+    const trainer = createFakeSocket();
+    manager.joinController(sessionId, { name: 'Trainer', requestedTrainer: true }, trainer);
+    const controllers = [createFakeSocket(), createFakeSocket()];
+    controllers.forEach((socket, index) => manager.joinController(sessionId, `P${index + 1}`, socket));
+
+    const trainerId = registerPlayerId(trainer);
+    assert.equal(manager.setGameMode(sessionId, GameMode.COLLABORATION_TEAMWORK, {
+      playerId: trainerId,
+      isTrainer: true,
+    }), true);
+    assert.equal(manager.startGame(sessionId), true);
+
+    const session = manager.sessions.get(sessionId);
+    const initialRoles = Object.fromEntries(Object.entries(session.state.roles).map(([playerId, roles]) => [
+      playerId,
+      roles.slice(),
+    ]));
+    const moverId = registerPlayerId(findControllerByRole(controllers, MazeRole.MOVER));
+    session.state.maze = makeOpenMaze({ hazards: [{ row: 0, col: 1 }] });
+
+    assert.equal(manager.handleInput(sessionId, moverId, { action: 'move', dir: 'e' }), true);
+    mock.timers.tick(5000);
+
+    for (const player of session.state.players) {
+      assert.notDeepEqual(session.state.roles[player.id], initialRoles[player.id]);
+    }
+    assert.ok(session.state.log.some((entry) => (
+      entry.event === 'roles_rotated'
+      && entry.reason === 'death'
+      && entry.hazardType === 'skull'
+    )));
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test('hazard death preserves roles in communication mode', () => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    const { manager, controllers, sessionId } = bootstrapGame(2);
+    const session = manager.sessions.get(sessionId);
+    const initialRoles = Object.fromEntries(Object.entries(session.state.roles).map(([playerId, roles]) => [
+      playerId,
+      roles.slice(),
+    ]));
+    const moverId = registerPlayerId(findControllerByRole(controllers, MazeRole.MOVER));
+    session.state.maze = makeOpenMaze({ hazards: [{ row: 0, col: 1 }] });
+
+    assert.equal(manager.handleInput(sessionId, moverId, { action: 'move', dir: 'e' }), true);
+    mock.timers.tick(5000);
+
+    assert.deepEqual(session.state.roles, initialRoles);
+    assert.equal(session.state.log.some((entry) => entry.event === 'roles_rotated'), false);
+  } finally {
+    mock.timers.reset();
+  }
+});
+
 test('wall collision counts as a wall hazard and triggers a reset', () => {
   mock.timers.enable({ apis: ['setTimeout'] });
   try {

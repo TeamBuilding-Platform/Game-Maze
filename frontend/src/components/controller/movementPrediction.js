@@ -26,6 +26,10 @@ export function getNextInputSequence(currentSequence, acknowledgedSequence) {
   return Math.max(current, acknowledged) + 1
 }
 
+export function shouldBlockMoverInput(status, pendingReset, reached) {
+  return status !== 'playing' || Boolean(pendingReset) || reached === true
+}
+
 export function reconcilePredictedPosition(authoritativePosition, pendingMoves, acknowledgedSequence, width, height) {
   const remainingMoves = pendingMoves.filter(({ sequence }) => sequence > acknowledgedSequence)
   const predictedPosition = remainingMoves.reduce(
