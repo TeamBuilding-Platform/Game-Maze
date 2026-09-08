@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { GridCanvas } from '../maze/GridCanvas'
 import { Dpad } from './Dpad'
 import { Shield, Key, Heart } from 'lucide-react'
-import { applyPredictedMove, reconcilePredictedPosition } from './movementPrediction'
+import {
+  applyPredictedMove,
+  getNextInputSequence,
+  reconcilePredictedPosition,
+} from './movementPrediction'
 
 export function MoverView({
   roleData,
@@ -55,7 +59,7 @@ export function MoverView({
       setIsInputCoolingDown(false)
     }, inputCooldownMs)
 
-    const sequence = inputSequenceRef.current + 1
+    const sequence = getNextInputSequence(inputSequenceRef.current, lastProcessedInputSeq)
     inputSequenceRef.current = sequence
     pendingMovesRef.current.push({ sequence, direction })
     setPredictedPlayerPos((position) => applyPredictedMove(

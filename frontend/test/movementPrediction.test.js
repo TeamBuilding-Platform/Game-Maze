@@ -1,6 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { applyPredictedMove, reconcilePredictedPosition } from '../src/components/controller/movementPrediction.js'
+import {
+  applyPredictedMove,
+  getNextInputSequence,
+  reconcilePredictedPosition,
+} from '../src/components/controller/movementPrediction.js'
 
 test('predicted movement responds immediately and remains inside maze bounds', () => {
   assert.deepEqual(applyPredictedMove({ row: 2, col: 2 }, 'e', 8, 8), { row: 2, col: 3 })
@@ -22,4 +26,12 @@ test('reconciliation removes acknowledged inputs and reapplies newer pending mov
 
   assert.deepEqual(result.remainingMoves, [{ sequence: 3, direction: 'e' }])
   assert.deepEqual(result.predictedPosition, { row: 1, col: 2 })
+})
+
+test('input sequence continues beyond a retained acknowledgement after remount', () => {
+  const firstSequenceAfterRemount = getNextInputSequence(0, 20)
+  const followingSequence = getNextInputSequence(firstSequenceAfterRemount, 20)
+
+  assert.equal(firstSequenceAfterRemount, 21)
+  assert.equal(followingSequence, 22)
 })
