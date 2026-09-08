@@ -6,6 +6,7 @@ import {
   applyPredictedMove,
   getNextInputSequence,
   reconcilePredictedPosition,
+  shouldBlockMoverInput,
 } from './movementPrediction'
 
 export function MoverView({
@@ -22,6 +23,11 @@ export function MoverView({
   const mazeWidth = roleData?.maze?.width || 15
   const mazeHeight = roleData?.maze?.height || 15
   const authoritativePlayerPos = roleData?.maze?.playerPos || roleData?.playerPos
+  const isMovementBlocked = shouldBlockMoverInput(
+    status,
+    roleData?.pendingReset,
+    roleData?.maze?.reached
+  )
   const inputSequenceRef = useRef(0)
   const cooldownTimerRef = useRef(null)
   const pendingMovesRef = useRef([])
@@ -31,6 +37,12 @@ export function MoverView({
   const roleTitle = assignedRoles.map((r) => r.toUpperCase()).join(' + ')
 
   useEffect(() => {
+    if (isMovementBlocked) {
+      pendingMovesRef.current = []
+      setPredictedPlayerPos(authoritativePlayerPos)
+      return
+    }
+
     const acknowledgedSequence = Number.isSafeInteger(lastProcessedInputSeq)
       ? lastProcessedInputSeq
       : -1
@@ -43,14 +55,14 @@ export function MoverView({
     )
     pendingMovesRef.current = reconciliation.remainingMoves
     setPredictedPlayerPos(reconciliation.predictedPosition)
-  }, [authoritativePlayerPos, lastProcessedInputSeq, mazeWidth, mazeHeight])
+  }, [authoritativePlayerPos, isMovementBlocked, lastProcessedInputSeq, mazeWidth, mazeHeight])
 
   useEffect(() => () => {
     if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current)
   }, [])
 
   function handleMove(direction) {
-    if (isInputCoolingDown || status !== 'playing') return
+    if (isInputCoolingDown || isMovementBlocked) return
 
     setIsInputCoolingDown(true)
     if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current)
@@ -124,7 +136,7 @@ export function MoverView({
       <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-2 sm:p-4 shadow-xl flex flex-col items-center shrink-0">
         <span className="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Navigation Controls</span>
         <Dpad
-          disabled={status !== 'playing' || isInputCoolingDown}
+          disabled={isMovementBlocked || isInputCoolingDown}
           onMove={handleMove}
         />
       </div>

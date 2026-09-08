@@ -2245,6 +2245,24 @@ class SessionManager {
           finishGame(s.state, 'fail', `${hazardType}_hazard`);
         }
       } else {
+        const gameMode = getStateGameMode(s.state);
+        if (gameMode === GameMode.COLLABORATION_TEAMWORK) {
+          const activePlayers = this._getPlayers(s);
+          const nextRoles = buildRoundRoles(activePlayers, s.state.roles, gameMode, true);
+          if (nextRoles && Object.keys(nextRoles).length) {
+            s.state.roles = nextRoles;
+            appendLog(s.state, {
+              ts: Date.now(),
+              event: 'roles_rotated',
+              reason: 'death',
+              hazardType,
+              roles: Object.entries(nextRoles).map(([playerId, roles]) => ({
+                playerId,
+                roles: Array.isArray(roles) ? roles.slice() : [roles],
+              })),
+            });
+          }
+        }
         resetRound(s.state, 'hazard_hit', { hazardType });
       }
       this.broadcastState(sessionId);

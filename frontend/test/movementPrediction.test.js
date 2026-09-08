@@ -4,6 +4,7 @@ import {
   applyPredictedMove,
   getNextInputSequence,
   reconcilePredictedPosition,
+  shouldBlockMoverInput,
 } from '../src/components/controller/movementPrediction.js'
 
 test('predicted movement responds immediately and remains inside maze bounds', () => {
@@ -34,4 +35,11 @@ test('input sequence continues beyond a retained acknowledgement after remount',
 
   assert.equal(firstSequenceAfterRemount, 21)
   assert.equal(followingSequence, 22)
+})
+
+test('mover input is blocked while victory or reset feedback is active', () => {
+  assert.equal(shouldBlockMoverInput('playing', null, false), false)
+  assert.equal(shouldBlockMoverInput('playing', { cause: 'victory' }, true), true)
+  assert.equal(shouldBlockMoverInput('playing', { cause: 'skull' }, false), true)
+  assert.equal(shouldBlockMoverInput('follow_up', null, false), true)
 })
