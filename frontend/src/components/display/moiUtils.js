@@ -5,7 +5,8 @@ const MOI_COLORS = {
   first_movement: '#14b8a6',
   movement_pause: '#f59e0b',
   hazard_wall: '#ef4444',
-  hazard_cross: '#ef4444',
+  hazard_skull: '#ef4444',
+  hazard_ghost: '#a855f7',
   key: '#eab308',
   goal: '#22c55e',
   timer_expired: '#111827',
@@ -19,7 +20,8 @@ const MOI_LEGEND = [
   { color: MOI_COLORS.first_movement, label: 'First Movement' },
   { color: MOI_COLORS.movement_pause, label: 'Movement Pause/Break' },
   { color: MOI_COLORS.hazard_wall, label: 'Hit Wall' },
-  { color: MOI_COLORS.hazard_cross, label: 'Hit Cross' },
+  { color: MOI_COLORS.hazard_skull, label: 'Hit Skull' },
+  { color: MOI_COLORS.hazard_ghost, label: 'Hit Ghost' },
   { color: MOI_COLORS.key, label: 'Got Key' },
   { color: MOI_COLORS.goal, label: 'Reached Goal' },
   { color: MOI_COLORS.timer_expired, label: 'Out of time' },
@@ -54,7 +56,11 @@ function classifyMoiEvent(entry) {
   if (entry.event === 'level_start') return 'level_start'
   if (entry.event === 'first_movement') return 'first_movement'
   if (entry.event === 'movement_pause') return 'movement_pause'
-  if (entry.event === 'hazard_hit') return entry.hazardType === 'wall' ? 'hazard_wall' : 'hazard_cross'
+  if (entry.event === 'hazard_hit') {
+    if (entry.hazardType === 'wall') return 'hazard_wall'
+    if (entry.hazardType === 'ghost') return 'hazard_ghost'
+    return 'hazard_skull'
+  }
   if (entry.event === 'key_pickup') return 'key'
   if (entry.event === 'session_end' && entry.reason === 'goal_reached') return 'goal'
   if (entry.event === 'timer_expired') return 'timer_expired'
@@ -76,7 +82,9 @@ function getMoiLabel(entry, mode = null) {
     case 'movement_pause':
       return 'Movement Pause/Break'
     case 'hazard_hit':
-      return entry.hazardType === 'wall' ? 'Hit Wall' : 'Hit Cross'
+      if (entry.hazardType === 'wall') return 'Hit Wall'
+      if (entry.hazardType === 'ghost') return 'Hit Ghost'
+      return 'Hit Skull'
     case 'key_pickup': {
       const n = entry.keyIndex != null ? ` ${entry.keyIndex + 1}` : ''
       return `Got Key${n}`

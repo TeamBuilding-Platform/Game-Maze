@@ -258,9 +258,8 @@ function createSessionSocketController({ sessionManager, logger = console } = {}
   }
 
   function createWorldInterval() {
-    return setInterval(() => {
-      sessionManager.tickWorld();
-    }, 3000);
+    // Ghost movement is turn-based and advances after a valid Mover action.
+    return null;
   }
 
   return {

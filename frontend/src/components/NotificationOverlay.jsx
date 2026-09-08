@@ -75,15 +75,27 @@ export function NotificationOverlay({ stateSync, customNotification, onDismiss }
     if (currLives < prevLives || (!prevReset && isHazardReset)) {
       const lostCount = prevLives > currLives ? prevLives - currLives : 1
       const effectiveLives = currLives
+      const infiniteLives = Boolean(curr?.summary?.infiniteLives)
+      const cause = currReset?.cause || currReset?.hazardType || currReset?.reason
+      const hazardLabel = cause === 'ghost' 
+        ? 'GHOST CAUGHT PLAYER!' 
+        : cause === 'wall' 
+        ? 'WALL HAZARD COLLISION!' 
+        : cause === 'skull'
+        ? 'SKULL HIT!'
+        : 'HAZARD HIT!'
 
-      if (effectiveLives > 0) {
-        const cause = currReset?.cause || currReset?.hazardType || currReset?.reason
-        const hazardLabel = cause === 'ghost' 
-          ? 'GHOST CAUGHT PLAYER!' 
-          : cause === 'wall' 
-          ? 'WALL HAZARD COLLISION!' 
-          : 'HAZARD HIT - LIFE LOST!'
-
+      if (infiniteLives) {
+        triggerNotification({
+          id: `hazard-${Date.now()}`,
+          type: 'hazard',
+          variant: 'danger',
+          title: hazardLabel,
+          subtitle: 'Returning to the start position.',
+          icon: Skull,
+          duration: 4500,
+        })
+      } else if (effectiveLives > 0) {
         triggerNotification({
           id: `death-${Date.now()}`,
           type: 'death',

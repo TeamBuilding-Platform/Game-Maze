@@ -13,7 +13,7 @@ export function GuideView({ roleData, summary }) {
   const roleTitle = assignedRoles.map((r) => r.toUpperCase()).join(' + ')
 
   return (
-    <div className="flex flex-col w-full max-w-md mx-auto p-2 sm:p-4 text-slate-100 h-[100dvh] sm:h-auto overflow-hidden">
+    <div className="flex flex-col w-full max-w-md mx-auto p-2 sm:p-4 text-slate-100 h-[calc(100dvh-42px)] sm:h-auto overflow-hidden">
       {/* HUD Header */}
       <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900/80 border border-slate-800 shadow-md shrink-0">
         <div className="flex items-center gap-2">

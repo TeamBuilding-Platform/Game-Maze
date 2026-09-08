@@ -8,6 +8,7 @@ const gameplaySettings = Object.freeze({
   lives: Object.freeze({
     start: 3,
     max: 5,
+    infinite: true,
   }),
   maze: Object.freeze({
     width: 8,
@@ -19,6 +20,9 @@ const gameplaySettings = Object.freeze({
   events: Object.freeze({
     recentLimit: 10,
     resetFeedbackMs: 5000,
+  }),
+  input: Object.freeze({
+    moveCooldownMs: 250,
   }),
   timer: Object.freeze({
     defaultDurationMs: 5 * 60 * 1000,

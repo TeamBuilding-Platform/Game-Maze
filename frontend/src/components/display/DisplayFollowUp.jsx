@@ -139,7 +139,7 @@ export function DisplayFollowUp({ stateSync, mode = GameMode.COMMUNICATION_CLARI
 
       {/* Legend */}
       <div className="flex items-center justify-center gap-6 flex-wrap">
-        {MOI_LEGEND.map(({ color, label }) => (
+        {MOI_LEGEND.filter(({ label }) => !stateSync?.summary?.infiniteLives || label !== 'Out of lives').map(({ color, label }) => (
           <div key={label} className="flex items-center gap-2 text-xs font-semibold text-slate-400">
             <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
             <span>{label}</span>

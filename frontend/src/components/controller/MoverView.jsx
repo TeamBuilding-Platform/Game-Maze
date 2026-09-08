@@ -1,16 +1,74 @@
+import { useEffect, useRef, useState } from 'react'
 import { GridCanvas } from '../maze/GridCanvas'
 import { Dpad } from './Dpad'
 import { Shield, Key, Heart } from 'lucide-react'
+import { applyPredictedMove, reconcilePredictedPosition } from './movementPrediction'
 
-export function MoverView({ roleData, summary, onSendInput, status }) {
+export function MoverView({
+  roleData,
+  summary,
+  onSendInput,
+  status,
+  inputCooldownMs = 250,
+  lastProcessedInputSeq = null,
+}) {
   const lives = summary?.livesRemaining ?? summary?.lives ?? 3
   const keysCollected = summary?.keysCollected ?? 0
   const assignedRoles = roleData?.assignedRoles || ['mover']
+  const mazeWidth = roleData?.maze?.width || 15
+  const mazeHeight = roleData?.maze?.height || 15
+  const authoritativePlayerPos = roleData?.maze?.playerPos || roleData?.playerPos
+  const inputSequenceRef = useRef(0)
+  const cooldownTimerRef = useRef(null)
+  const pendingMovesRef = useRef([])
+  const [predictedPlayerPos, setPredictedPlayerPos] = useState(authoritativePlayerPos)
+  const [isInputCoolingDown, setIsInputCoolingDown] = useState(false)
 
   const roleTitle = assignedRoles.map((r) => r.toUpperCase()).join(' + ')
 
+  useEffect(() => {
+    const acknowledgedSequence = Number.isSafeInteger(lastProcessedInputSeq)
+      ? lastProcessedInputSeq
+      : -1
+    const reconciliation = reconcilePredictedPosition(
+      authoritativePlayerPos,
+      pendingMovesRef.current,
+      acknowledgedSequence,
+      mazeWidth,
+      mazeHeight
+    )
+    pendingMovesRef.current = reconciliation.remainingMoves
+    setPredictedPlayerPos(reconciliation.predictedPosition)
+  }, [authoritativePlayerPos, lastProcessedInputSeq, mazeWidth, mazeHeight])
+
+  useEffect(() => () => {
+    if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current)
+  }, [])
+
+  function handleMove(direction) {
+    if (isInputCoolingDown || status !== 'playing') return
+
+    setIsInputCoolingDown(true)
+    if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current)
+    cooldownTimerRef.current = setTimeout(() => {
+      cooldownTimerRef.current = null
+      setIsInputCoolingDown(false)
+    }, inputCooldownMs)
+
+    const sequence = inputSequenceRef.current + 1
+    inputSequenceRef.current = sequence
+    pendingMovesRef.current.push({ sequence, direction })
+    setPredictedPlayerPos((position) => applyPredictedMove(
+      position || authoritativePlayerPos,
+      direction,
+      mazeWidth,
+      mazeHeight
+    ))
+    onSendInput({ action: 'move', dir: direction, clientInputSeq: sequence })
+  }
+
   return (
-    <div className="flex flex-col w-full max-w-md mx-auto p-2 sm:p-4 text-slate-100 h-[100dvh] sm:h-auto overflow-hidden">
+    <div className="flex flex-col w-full max-w-md mx-auto p-2 sm:p-4 text-slate-100 h-[calc(100dvh-42px)] sm:h-auto overflow-hidden">
       {/* HUD Header */}
       <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900/80 border border-slate-800 shadow-md shrink-0">
         <div className="flex items-center gap-2">
@@ -21,12 +79,16 @@ export function MoverView({ roleData, summary, onSendInput, status }) {
           </div>
         </div>
 
-        {/* Lives & Keys */}
+        {/* Lives are hidden while infinite-life playtesting is enabled. */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 bg-rose-950/60 border border-rose-800/50 px-2.5 py-1 rounded-lg">
-            <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
-            <span className="text-sm font-bold text-rose-200">{lives}</span>
-          </div>
+          {!summary?.infiniteLives && (
+            <div className="flex items-center gap-1.5 bg-rose-950/60 border border-rose-800/50 px-2.5 py-1 rounded-lg">
+              <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
+              <span className="text-sm font-bold text-rose-200" aria-label={`${lives} lives`}>
+                {lives}
+              </span>
+            </div>
+          )}
           <div className="flex items-center gap-1.5 bg-amber-950/60 border border-amber-800/50 px-2.5 py-1 rounded-lg">
             <Key className="w-4 h-4 text-amber-400" />
             <span className="text-sm font-bold text-amber-200">{keysCollected} / 3</span>
@@ -37,10 +99,10 @@ export function MoverView({ roleData, summary, onSendInput, status }) {
       {/* Mover Maze View */}
       <div className="flex flex-col items-center flex-1 min-h-0 justify-center my-2 sm:my-4">
         <GridCanvas keysCollected={summary?.keysCollected}
-          width={roleData?.maze?.width || 15}
-          height={roleData?.maze?.height || 15}
+          width={mazeWidth}
+          height={mazeHeight}
           cells={roleData?.maze?.cells}
-          playerPos={roleData?.maze?.playerPos || roleData?.playerPos}
+          playerPos={predictedPlayerPos || authoritativePlayerPos}
           keys={roleData?.keys}
           goal={roleData?.goal}
           hazards={roleData?.hazards}
@@ -58,8 +120,8 @@ export function MoverView({ roleData, summary, onSendInput, status }) {
       <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-2 sm:p-4 shadow-xl flex flex-col items-center shrink-0">
         <span className="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Navigation Controls</span>
         <Dpad
-          disabled={status !== 'playing'}
-          onMove={(dir) => onSendInput({ action: 'move', dir })}
+          disabled={status !== 'playing' || isInputCoolingDown}
+          onMove={handleMove}
         />
       </div>
     </div>

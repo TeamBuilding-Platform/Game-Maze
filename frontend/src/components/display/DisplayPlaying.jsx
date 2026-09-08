@@ -28,16 +28,18 @@ export function DisplayPlaying({ stateSync }) {
     <div className="flex flex-col gap-6 w-full max-w-6xl mx-auto p-6 text-slate-100 min-h-screen justify-center">
       {/* Top HUD Bar */}
       <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl flex items-center justify-between flex-wrap gap-4 backdrop-blur-xl">
-        {/* Lives Counter */}
-        <div className="flex items-center gap-4">
-          <div className="p-3.5 rounded-2xl bg-rose-950/80 border border-rose-800/80 text-rose-500 shadow-lg">
-            <Heart className="w-7 h-7 fill-rose-500" />
+        {/* Lives are hidden while infinite-life playtesting is enabled. */}
+        {!summary?.infiniteLives && (
+          <div className="flex items-center gap-4">
+            <div className="p-3.5 rounded-2xl bg-rose-950/80 border border-rose-800/80 text-rose-500 shadow-lg">
+              <Heart className="w-7 h-7 fill-rose-500" />
+            </div>
+            <div>
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Team Lives</span>
+              <span className="text-3xl font-black text-rose-300">{lives} / 3</span>
+            </div>
           </div>
-          <div>
-            <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Team Lives</span>
-            <span className="text-3xl font-black text-rose-300">{lives} / 3</span>
-          </div>
-        </div>
+        )}
 
         {/* Timer Display & Mode Badge */}
         <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -129,4 +131,3 @@ export function DisplayPlaying({ stateSync }) {
     </div>
   )
 }
-
