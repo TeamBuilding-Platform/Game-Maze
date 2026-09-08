@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 /**
  * GridCanvas renders the 15x15 maze grid with smooth 60fps animations
@@ -22,7 +22,9 @@ export function GridCanvas({
   mode = 'spectator', // 'mover', 'guide', 'key-seer', 'navigator', 'trainer', 'spectator'
   accentColor = '#3b82f6',
 }) {
+  const containerRef = useRef(null)
   const canvasRef = useRef(null)
+  const [squareSize, setSquareSize] = useState(null)
   const animPlayerPosRef = useRef(null)
   const animGhostsPosRef = useRef({})
   const propsRef = useRef({})
@@ -30,6 +32,36 @@ export function GridCanvas({
   const prevReachedRef = useRef(reached)
   const prevPendingResetRef = useRef(pendingReset)
   const keyAnimationsRef = useRef([])
+
+  // Size the visible canvas from the smaller axis of its flex area. CSS
+  // max-height can clamp only one axis, which stretches the canvas on tall
+  // phone layouts that do not include the D-pad.
+  useEffect(() => {
+    const container = containerRef.current
+    const stage = container?.parentElement
+    if (!container || !stage) return undefined
+
+    function updateSquareSize() {
+      const stageRect = stage.getBoundingClientRect()
+      const nextSize = Math.max(1, Math.floor(Math.min(stageRect.width, stageRect.height, 600)))
+      setSquareSize((currentSize) => currentSize === nextSize ? currentSize : nextSize)
+    }
+
+    updateSquareSize()
+    window.addEventListener('resize', updateSquareSize)
+    window.addEventListener('orientationchange', updateSquareSize)
+
+    const observer = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(updateSquareSize)
+    observer?.observe(stage)
+
+    return () => {
+      window.removeEventListener('resize', updateSquareSize)
+      window.removeEventListener('orientationchange', updateSquareSize)
+      observer?.disconnect()
+    }
+  }, [])
 
   // Keep latest props available to the requestAnimationFrame loop without triggering frame teardowns
   useEffect(() => {
@@ -351,7 +383,7 @@ export function GridCanvas({
           ctx.font = `bold ${Math.max(12, cellSize * 0.6)}px sans-serif`
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
-          ctx.fillText('⚡', cx, cy)
+          ctx.fillText('💀', cx, cy)
         }
       }
 
@@ -657,7 +689,7 @@ export function GridCanvas({
             ctx.textAlign = 'center'
             ctx.textBaseline = 'middle'
             ctx.fillText('👻', 0, 0)
-          } else if (anim.type === 'grid' || anim.type === 'hazard') {
+          } else if (anim.type === 'skull' || anim.type === 'grid' || anim.type === 'hazard') {
             const hazardGlow = ctx.createRadialGradient(0, 0, 2 * scale, 0, 0, cellSize * 0.5 * scale)
             hazardGlow.addColorStop(0, 'rgba(239, 68, 68, 0.5)')
             hazardGlow.addColorStop(1, 'transparent')
@@ -670,7 +702,7 @@ export function GridCanvas({
             ctx.font = `bold ${Math.max(12 * scale, cellSize * 0.6 * scale)}px sans-serif`
             ctx.textAlign = 'center'
             ctx.textBaseline = 'middle'
-            ctx.fillText('⚡', 0, 0)
+            ctx.fillText('💀', 0, 0)
           }
           
           ctx.restore()
@@ -692,7 +724,11 @@ export function GridCanvas({
   }, [])
 
   return (
-    <div className="relative w-full max-h-full aspect-square sm:max-w-[600px] mx-auto flex items-center justify-center rounded-xl overflow-hidden border border-slate-800 bg-slate-950 shadow-2xl">
+    <div
+      ref={containerRef}
+      style={squareSize ? { width: `${squareSize}px`, height: `${squareSize}px` } : undefined}
+      className="relative w-full max-w-[600px] aspect-square shrink-0 mx-auto flex items-center justify-center rounded-xl overflow-hidden border border-slate-800 bg-slate-950 shadow-2xl"
+    >
       <canvas ref={canvasRef} className="w-full h-full block touch-none" />
     </div>
   )

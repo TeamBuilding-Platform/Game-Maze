@@ -75,6 +75,7 @@ export function DevTools({
   }
 
   const isLive = activeView === 'live'
+  const showLifeControls = !stateSync?.summary?.infiniteLives
 
   const handleSelectView = (viewId, targetMode) => {
     setActiveView(viewId)
@@ -190,7 +191,7 @@ export function DevTools({
               <Bell className="w-3.5 h-3.5" /> Test Overlay Notifications
             </span>
             <div className="grid grid-cols-2 gap-1.5 bg-slate-950 p-2 rounded-2xl border border-slate-800">
-              <button
+              {showLifeControls && <button
                 type="button"
                 onClick={() =>
                   onTriggerMockNotification?.({
@@ -207,9 +208,9 @@ export function DevTools({
               >
                 <Skull className="w-3.5 h-3.5 text-rose-400 shrink-0" />
                 <span className="truncate">Life Lost</span>
-              </button>
+              </button>}
 
-              <button
+              {showLifeControls && <button
                 type="button"
                 onClick={() =>
                   onTriggerMockNotification?.({
@@ -226,7 +227,7 @@ export function DevTools({
               >
                 <HeartCrack className="w-3.5 h-3.5 text-rose-300 shrink-0" />
                 <span className="truncate">Team Defeat</span>
-              </button>
+              </button>}
 
               <button
                 type="button"

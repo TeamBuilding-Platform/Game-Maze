@@ -54,6 +54,8 @@ export function DisplayDebrief({ stateSync, onRestart }) {
             ? 'Performance data and timeline metrics from all 3 rounds are recorded below. Review the retrospective timelines before launching a new session.'
             : outcome === 'success'
             ? `Great team coordination! All 3 keys were retrieved and the Mover reached the exit safely. ${modeFocusText}`
+            : summary?.infiniteLives
+            ? `The team encountered obstacles before the challenge ended. Review the retrospective debrief below. ${modeFocusText}`
             : `The team encountered obstacles or ran out of lives. Review the retrospective debrief below. ${modeFocusText}`}
         </p>
       </div>
@@ -209,7 +211,7 @@ export function DisplayDebrief({ stateSync, onRestart }) {
 
         {/* Timeline Legend */}
         <div className="flex items-center justify-center gap-4 flex-wrap pt-2 border-t border-slate-800/80">
-          {MOI_LEGEND.map(({ color, label }) => (
+          {MOI_LEGEND.filter(({ label }) => !summary?.infiniteLives || label !== 'Out of lives').map(({ color, label }) => (
             <div key={label} className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
               <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
               <span>{label}</span>
@@ -239,4 +241,3 @@ export function DisplayDebrief({ stateSync, onRestart }) {
     </div>
   )
 }
-

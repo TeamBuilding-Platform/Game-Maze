@@ -33,7 +33,9 @@ function makeInitialState() {
     trainerBroadcast: null,
     trainerHighlightEventIds: [],
     aiSuggestionDecisions: {},
-    summary: createSummaryState(gameplaySettings.lives.start),
+    summary: createSummaryState(gameplaySettings.lives.start, {
+      infiniteLives: gameplaySettings.lives.infinite,
+    }),
     timer: createTimerState(),
     phaseFlow: createPhaseFlowState(),
     gameMode: GameMode.COMMUNICATION_CLARITY,

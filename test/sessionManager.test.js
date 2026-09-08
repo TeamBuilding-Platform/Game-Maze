@@ -590,7 +590,33 @@ test('mover pickup updates lives and logs the life pickup', () => {
   assert.ok(sync.state.log.some((entry) => entry.event === 'life_pickup'));
 });
 
-test('hazard hit decrements life and triggers a reset', () => {
+test('sequenced mover input enforces the double-tap cooldown and acknowledges rejected input', () => {
+  const { manager, display, controllers, sessionId } = bootstrapGame(2);
+  const moverId = registerPlayerId(findControllerByRole(controllers, MazeRole.MOVER));
+  const session = manager.sessions.get(sessionId);
+  session.state.maze = makeOpenMaze();
+
+  assert.equal(manager.handleInput(sessionId, moverId, {
+    action: 'move',
+    dir: 'e',
+    clientInputSeq: 1,
+  }), true);
+  assert.deepEqual(session.state.maze.playerPos, { row: 0, col: 1 });
+
+  assert.equal(manager.handleInput(sessionId, moverId, {
+    action: 'move',
+    dir: 's',
+    clientInputSeq: 2,
+  }), false);
+
+  const sync = display.sent.at(-1).state;
+  assert.deepEqual(session.state.maze.playerPos, { row: 0, col: 1 });
+  assert.equal(sync.lastProcessedInputSeq, undefined);
+  assert.ok(sync.log.some((entry) => entry.event === 'input_rejected' && entry.reason === 'input_cooldown'));
+  assert.equal(latestState(findControllerByRole(controllers, MazeRole.MOVER)).lastProcessedInputSeq, 2);
+});
+
+test('hazard hit preserves unlimited lives and triggers a reset', () => {
   mock.timers.enable({ apis: ['setTimeout'] });
   try {
     const { manager, display, controllers, sessionId } = bootstrapGame(2);
@@ -602,21 +628,22 @@ test('hazard hit decrements life and triggers a reset', () => {
 
     assert.equal(manager.handleInput(sessionId, moverId, { action: 'move', dir: 'e' }), true);
 
-    // Immediately after: lives reduced, pendingReset set, but maze not yet reset
+    // Immediately after: unlimited lives are preserved and reset feedback is shown.
     const feedbackSync = display.sent.at(-1);
-    assert.equal(feedbackSync.state.summary.livesRemaining, 2);
+    assert.equal(feedbackSync.state.summary.livesRemaining, 3);
+    assert.equal(feedbackSync.state.summary.infiniteLives, true);
     assert.ok(feedbackSync.state.pendingReset != null, 'pendingReset should be set');
-    assert.ok(feedbackSync.state.log.some((entry) => entry.event === 'hazard_hit' && entry.hazardType === 'grid'));
+    assert.ok(feedbackSync.state.log.some((entry) => entry.event === 'hazard_hit' && entry.hazardType === 'skull'));
 
     // Advance timers to trigger the actual reset
     mock.timers.tick(5000);
 
     const sync = display.sent.at(-1);
     const liveState = manager.sessions.get(sessionId).state;
-    assert.equal(sync.state.summary.livesRemaining, 2);
+    assert.equal(sync.state.summary.livesRemaining, 3);
     assert.equal(sync.state.summary.resets, 1);
-    assert.ok(sync.state.log.some((entry) => entry.event === 'hazard_hit' && entry.hazardType === 'grid'));
-    assert.ok(sync.state.log.some((entry) => entry.event === 'reset' && entry.hazardType === 'grid'));
+    assert.ok(sync.state.log.some((entry) => entry.event === 'hazard_hit' && entry.hazardType === 'skull'));
+    assert.ok(sync.state.log.some((entry) => entry.event === 'reset' && entry.hazardType === 'skull'));
     assert.deepEqual(liveState.maze.playerPos, { row: 0, col: 0 });
   } finally {
     mock.timers.reset();
@@ -634,14 +661,15 @@ test('wall collision counts as a wall hazard and triggers a reset', () => {
     assert.equal(manager.handleInput(sessionId, moverId, { action: 'move', dir: 'n' }), true);
 
     const feedbackSync = display.sent.at(-1);
-    assert.equal(feedbackSync.state.summary.livesRemaining, 2);
+    assert.equal(feedbackSync.state.summary.livesRemaining, 3);
+    assert.equal(feedbackSync.state.summary.infiniteLives, true);
     assert.ok(feedbackSync.state.pendingReset != null, 'pendingReset should be set');
 
     mock.timers.tick(5000);
 
     const sync = display.sent.at(-1);
     const liveState = manager.sessions.get(sessionId).state;
-    assert.equal(sync.state.summary.livesRemaining, 2);
+    assert.equal(sync.state.summary.livesRemaining, 3);
     assert.equal(sync.state.summary.resets, 1);
     assert.ok(sync.state.log.some((entry) => entry.event === 'hazard_hit' && entry.hazardType === 'wall'));
     assert.ok(sync.state.log.some((entry) => entry.event === 'reset' && entry.hazardType === 'wall'));
@@ -694,8 +722,9 @@ test('reset regenerates maze seed and exposes it in synced state and export', ()
   }
 });
 
-test('ghost roams when player is out of chase range', () => {
-  const { manager, sessionId } = bootstrapGame(2);
+test('ghost takes one turn after the mover moves and not on a world tick', () => {
+  const { manager, controllers, sessionId } = bootstrapGame(2);
+  const moverId = registerPlayerId(findControllerByRole(controllers, MazeRole.MOVER));
   const session = manager.sessions.get(sessionId);
   session.state.maze = makeLinearMaze(9, {
     ghosts: [{ id: 'ghost-1', row: 0, col: 8 }],
@@ -703,7 +732,9 @@ test('ghost roams when player is out of chase range', () => {
   });
 
   manager.broadcastState(sessionId);
-  assert.equal(manager.tickWorld(), 1);
+  assert.equal(manager.tickWorld(), 0);
+  assert.equal(session.state.maze.ghosts[0].col, 8);
+  assert.equal(manager.handleInput(sessionId, moverId, { action: 'move', dir: 'e' }), true);
 
   const stateAfterTick = session.state;
   const ghost = stateAfterTick.maze.ghosts.find((entry) => entry.id === 'ghost-1');
@@ -712,25 +743,28 @@ test('ghost roams when player is out of chase range', () => {
   assert.ok(stateAfterTick.log.some((entry) => entry.event === 'ghost_move'));
 });
 
-test('ghost tick moves ghosts for guide and ghost collision triggers a reset', () => {
+test('player turn moves ghosts for guide and ghost collision triggers a reset', () => {
   mock.timers.enable({ apis: ['setTimeout'] });
   try {
     const { manager, display, controllers, sessionId } = bootstrapGame(2);
+    const moverId = registerPlayerId(findControllerByRole(controllers, MazeRole.MOVER));
     const session = manager.sessions.get(sessionId);
-    session.state.maze = makeOpenMaze({
-      ghosts: [{ id: 'ghost-1', row: 0, col: 1 }],
+    session.state.maze = makeLinearMaze(3, {
+      ghosts: [{ id: 'ghost-1', row: 0, col: 2 }],
+      goal: { row: 0, col: 2 },
     });
 
     manager.broadcastState(sessionId);
     const guide = findControllerByRole(controllers, MazeRole.GUIDE);
     assert.equal(latestState(guide).roleData.ghosts.length, 1);
-    assert.deepEqual(latestState(guide).roleData.ghosts[0], { id: 'ghost-1', row: 0, col: 1 });
+    assert.deepEqual(latestState(guide).roleData.ghosts[0], { id: 'ghost-1', row: 0, col: 2 });
 
-    assert.equal(manager.tickWorld(), 1);
+    assert.equal(manager.handleInput(sessionId, moverId, { action: 'move', dir: 'e' }), true);
 
-    // Immediately: lives reduced, pendingReset set
+    // Immediately: collision feedback is set while unlimited lives remain available.
     const feedbackSync = display.sent.at(-1).state;
-    assert.equal(feedbackSync.summary.livesRemaining, 2);
+    assert.equal(feedbackSync.summary.livesRemaining, 3);
+    assert.equal(feedbackSync.summary.infiniteLives, true);
     assert.ok(feedbackSync.pendingReset != null, 'pendingReset should be set after ghost collision');
     assert.ok(feedbackSync.log.some((entry) => entry.event === 'ghost_move'));
     assert.ok(feedbackSync.log.some((entry) => entry.event === 'ghost_collision'));
@@ -740,7 +774,7 @@ test('ghost tick moves ghosts for guide and ghost collision triggers a reset', (
     mock.timers.tick(5000);
 
     const sync = display.sent.at(-1).state;
-    assert.equal(sync.summary.livesRemaining, 2);
+    assert.equal(sync.summary.livesRemaining, 3);
     assert.equal(sync.summary.resets, 1);
     assert.ok(sync.log.some((entry) => entry.event === 'reset' && entry.hazardType === 'ghost'));
   } finally {
@@ -964,7 +998,7 @@ test('key-seer only sees exit after collecting all keys', () => {
   assert.deepEqual(latestState(keySeer).roleData.goal, session.state.maze.goal);
 });
 
-test('lives-zero follow-up ends the session as a failure', () => {
+test('a hazard cannot end the session when unlimited lives are enabled', () => {
   mock.timers.enable({ apis: ['setTimeout'] });
   try {
     const { manager, display, controllers, sessionId } = bootstrapGame(2);
@@ -982,80 +1016,12 @@ test('lives-zero follow-up ends the session as a failure', () => {
     assert.ok(sync.state.pendingReset);
 
     mock.timers.tick(5000);
-    const followUpState = display.sent.at(-1).state;
-    assert.equal(followUpState.status, GameStatus.FOLLOW_UP);
-    assert.equal(followUpState.phaseFlow.phaseType, 'follow_up');
-    assert.equal(followUpState.phaseFlow.followingPhase, 1);
-    assert.equal(followUpState.phaseFlow.terminalOutcome, 'fail');
-    assert.equal(followUpState.phaseFlow.terminalReason, 'grid_hazard');
-    assert.equal(followUpState.summary.livesRemaining, 0);
-    assert.ok(followUpState.log.some((entry) => entry.event === 'session_end' && entry.outcome === 'fail'));
-    assert.equal(manager.endFollowUp(sessionId), true);
-
-    const finalState = display.sent.at(-1).state;
-    assert.equal(finalState.status, GameStatus.SESSION_OVERVIEW);
-    assert.equal(finalState.summary.outcome, 'fail');
-    assert.equal(finalState.summary.livesRemaining, 0);
-    assert.ok(finalState.log.some((entry) => entry.event === 'session_end' && entry.reason === 'grid_hazard'));
-  } finally {
-    mock.timers.reset();
-  }
-});
-
-test('ending terminal follow-up preserves terminal outcome instead of advancing phases', () => {
-  mock.timers.enable({ apis: ['setTimeout'] });
-  try {
-    const { manager, display, controllers, sessionId } = bootstrapGame(2);
-    const moverId = registerPlayerId(findControllerByRole(controllers, MazeRole.MOVER));
-    const session = manager.sessions.get(sessionId);
-    session.state.maze = makeOpenMaze({
-      hazards: [{ row: 0, col: 1 }],
-    });
-    session.state.summary.livesRemaining = 1;
-
-    assert.equal(manager.handleInput(sessionId, moverId, { action: 'move', dir: 'e' }), true);
-    assert.equal(display.sent.at(-1).state.status, GameStatus.PLAYING);
-
-    mock.timers.tick(5000);
-    assert.equal(display.sent.at(-1).state.status, GameStatus.FOLLOW_UP);
-    assert.equal(manager.endFollowUp(sessionId), true);
-
-    const finalState = display.sent.at(-1).state;
-    assert.equal(finalState.status, GameStatus.SESSION_OVERVIEW);
-    assert.equal(finalState.summary.outcome, 'fail');
-    assert.ok(finalState.log.some((entry) => entry.event === 'session_end' && entry.reason === 'grid_hazard'));
-  } finally {
-    mock.timers.reset();
-  }
-});
-
-test('ended sessions can restart into a fresh round', () => {
-  mock.timers.enable({ apis: ['setTimeout'] });
-  try {
-    const { manager, display, trainer, controllers, sessionId } = bootstrapGame(2);
-    const moverId = registerPlayerId(findControllerByRole(controllers, MazeRole.MOVER));
-    const session = manager.sessions.get(sessionId);
-    session.state.maze = makeOpenMaze({
-      hazards: [{ row: 0, col: 1 }],
-    });
-    session.state.summary.livesRemaining = 1;
-
-    assert.equal(manager.handleInput(sessionId, moverId, { action: 'move', dir: 'e' }), true);
-    assert.equal(display.sent.at(-1).state.status, GameStatus.PLAYING);
-
-    mock.timers.tick(5000);
-    assert.equal(display.sent.at(-1).state.status, GameStatus.FOLLOW_UP);
-    assert.equal(display.sent.at(-1).state.phaseFlow.terminalOutcome, 'fail');
-    assert.equal(manager.endFollowUp(sessionId), true);
-    assert.equal(latestState(trainer).canRestart, true);
-    assert.equal(manager.restartGame(sessionId), true);
-
-    const sync = display.sent.at(-1);
-    assert.equal(sync.state.status, GameStatus.PLAYING);
-    assert.equal(sync.state.summary.outcome, null);
-    assert.equal(sync.state.summary.keysCollected, 0);
-    assert.equal(sync.state.summary.resets, 0);
-    assert.ok(sync.state.log.some((entry) => entry.event === 'game_start'));
+    const resetState = display.sent.at(-1).state;
+    assert.equal(resetState.status, GameStatus.PLAYING);
+    assert.equal(resetState.summary.livesRemaining, 1);
+    assert.equal(resetState.summary.infiniteLives, true);
+    assert.equal(resetState.summary.resets, 1);
+    assert.equal(resetState.log.some((entry) => entry.event === 'session_end'), false);
   } finally {
     mock.timers.reset();
   }

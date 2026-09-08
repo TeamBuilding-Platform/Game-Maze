@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react'
 
-const BASE_SIZE = 208
+const BASE_SIZE = 248
 const FIT_PADDING_BOTTOM = 12
 const FIT_PADDING_RIGHT = 24
-const MIN_SCALE = 0.45
-const BTN_STYLE = "w-16 h-16 rounded-2xl bg-slate-800/90 active:bg-blue-600 border border-slate-700/80 shadow-lg flex items-center justify-center text-slate-100 active:scale-95 transition-all touch-none disabled:opacity-40 select-none cursor-pointer disabled:cursor-not-allowed"
+const MIN_SCALE = 0.55
+const BTN_STYLE = "w-[76px] h-[76px] rounded-3xl bg-slate-800/90 active:bg-blue-600 border border-slate-700/80 shadow-lg flex items-center justify-center text-slate-100 active:scale-95 transition-all touch-none disabled:opacity-40 select-none cursor-pointer disabled:cursor-not-allowed"
 
 export function Dpad({ onMove, disabled = false }) {
   const containerRef = useRef(null)
@@ -106,7 +106,7 @@ export function Dpad({ onMove, disabled = false }) {
           className={`${BTN_STYLE} absolute top-0 left-1/2 -translate-x-1/2`}
           aria-label="Move North"
         >
-          <ArrowUp className="w-8 h-8" />
+          <ArrowUp className="w-10 h-10" />
         </button>
 
         {/* Right / East */}
@@ -117,7 +117,7 @@ export function Dpad({ onMove, disabled = false }) {
           className={`${BTN_STYLE} absolute right-0 top-1/2 -translate-y-1/2`}
           aria-label="Move East"
         >
-          <ArrowRight className="w-8 h-8" />
+          <ArrowRight className="w-10 h-10" />
         </button>
 
         {/* Down / South */}
@@ -128,7 +128,7 @@ export function Dpad({ onMove, disabled = false }) {
           className={`${BTN_STYLE} absolute bottom-0 left-1/2 -translate-x-1/2`}
           aria-label="Move South"
         >
-          <ArrowDown className="w-8 h-8" />
+          <ArrowDown className="w-10 h-10" />
         </button>
 
         {/* Left / West */}
@@ -139,11 +139,11 @@ export function Dpad({ onMove, disabled = false }) {
           className={`${BTN_STYLE} absolute left-0 top-1/2 -translate-y-1/2`}
           aria-label="Move West"
         >
-          <ArrowLeft className="w-8 h-8" />
+          <ArrowLeft className="w-10 h-10" />
         </button>
 
         {/* Center Dpad Hub */}
-        <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 shadow-inner flex items-center justify-center text-xs font-bold text-slate-500">
+        <div className="w-14 h-14 rounded-full bg-slate-900 border border-slate-800 shadow-inner flex items-center justify-center text-xs font-bold text-slate-500">
           D-PAD
         </div>
       </div>

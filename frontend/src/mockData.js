@@ -85,6 +85,7 @@ export function getMockDataset() {
   const baseSummary = {
     livesRemaining: 2,
     lives: 2,
+    infiniteLives: true,
     keysCollected: 2,
     totalKeys: 3,
     outcome: 'SUCCESS',
@@ -169,7 +170,7 @@ export function getMockStateForView(viewKey) {
       { eventId: 'pstart1', event: 'phase_start', phaseType: 'gameplay', phase: 1, durationMs: 900000, t: phaseStartT },
       { eventId: 'e1', event: 'hazard_hit', hazardType: 'wall', t: phaseStartT + 237, ts: Date.now() - 600000, livesRemaining: 2 },
       { eventId: 'e2', event: 'input', result: 'key', keyIndex: 0, t: phaseStartT + 410, ts: Date.now() - 500000 },
-      { eventId: 'e3', event: 'hazard_hit', hazardType: 'cross', t: phaseStartT + 582, ts: Date.now() - 400000, livesRemaining: 1 },
+      { eventId: 'e3', event: 'hazard_hit', hazardType: 'skull', t: phaseStartT + 582, ts: Date.now() - 400000, livesRemaining: 1 },
       { eventId: 'e4', event: 'input', result: 'key', keyIndex: 1, t: phaseStartT + 700, ts: Date.now() - 300000 },
       { eventId: 'e5', event: 'hazard_hit', hazardType: 'wall', t: phaseStartT + 795, ts: Date.now() - 200000, livesRemaining: 0 },
       { eventId: 'e6', event: 'input', result: 'goal', t: phaseStartT + 840, ts: Date.now() - 100000 },

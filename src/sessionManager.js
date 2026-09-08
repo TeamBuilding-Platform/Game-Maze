@@ -15,12 +15,14 @@ const MAX_PLAYERS = gameplaySettings.players.max;
 const MIN_PLAYERS = gameplaySettings.players.min;
 const START_LIVES = gameplaySettings.lives.start;
 const MAX_LIVES = gameplaySettings.lives.max;
+const INFINITE_LIVES = gameplaySettings.lives.infinite;
 const HAZARD_COUNT = gameplaySettings.maze.hazardCount;
 const KEY_COUNT = gameplaySettings.maze.keyCount;
 const RECENT_EVENT_LIMIT = gameplaySettings.events.recentLimit;
 const DEFAULT_TIMER_DURATION_MS = gameplaySettings.timer.defaultDurationMs;
 const GAMEPLAY_PHASE_DURATIONS_MS = gameplaySettings.timer.gameplayPhaseDurationsMs;
 const RESET_FEEDBACK_MS = gameplaySettings.events.resetFeedbackMs;
+const MOVE_INPUT_COOLDOWN_MS = gameplaySettings.input.moveCooldownMs;
 const VICTORY_FEEDBACK_MS = 2500;
 const DEFAULT_ABANDONED_SESSION_TIMEOUT_MS = gameplaySettings.session.abandonedTimeoutMs;
 const MOVEMENT_PAUSE_THRESHOLD_MS = 15 * 1000;
@@ -468,6 +470,7 @@ function buildControllerState(state, session, playerId) {
   const role = getPrimaryRole(roles);
   const controllerSummary = state.summary;
   const mazeMeta = buildMazeMeta(state.maze);
+  const controller = session?.controllers?.get(playerId);
   return {
     status: state.status,
     players: state.players,
@@ -484,6 +487,10 @@ function buildControllerState(state, session, playerId) {
     ready: state.players.length >= MIN_PLAYERS,
     capacity: MAX_PLAYERS,
     pendingReset: state.pendingReset || null,
+    inputCooldownMs: MOVE_INPUT_COOLDOWN_MS,
+    lastProcessedInputSeq: Number.isSafeInteger(controller?.lastProcessedInputSeq)
+      ? controller.lastProcessedInputSeq
+      : null,
   };
 }
 
@@ -567,7 +574,9 @@ function resetRound(state, reason, metadata = {}) {
 function applyHazardOutcome(state, controller, playerId, input, hazardType, position) {
   const ts = Date.now();
   const beforeLives = state.summary.livesRemaining;
-  state.summary.livesRemaining -= 1;
+  if (!INFINITE_LIVES) {
+    state.summary.livesRemaining -= 1;
+  }
   state.summary.livesLost += 1;
   if (state.maze) {
     state.maze.hitHazards += 1;
@@ -657,7 +666,7 @@ function beginGameState(session, startedAt, options = {}) {
   session.state.pendingReset = null;
   session.state.followUpFocusedEventId = null;
   session.state.summary = {
-    ...createSummaryState(START_LIVES),
+    ...createSummaryState(START_LIVES, { infiniteLives: INFINITE_LIVES }),
     startedAt,
   };
   session.state.status = GameStatus.PLAYING;
@@ -1165,7 +1174,7 @@ class SessionManager {
     session.state.pendingReset = null;
     session.state.followUpFocusedEventId = null;
     session.state.pendingGameMode = null;
-    session.state.summary = createSummaryState(START_LIVES);
+    session.state.summary = createSummaryState(START_LIVES, { infiniteLives: INFINITE_LIVES });
     session.state.phaseFlow = createPhaseFlowState({ phaseType: 'lobby' });
     session.state.timer = createTimerState();
 
@@ -1474,41 +1483,32 @@ class SessionManager {
   }
 
   tickWorld() {
-    let changed = 0;
+    // Ghosts advance from handleInput so their movement is tied to player turns.
+    return 0;
+  }
 
-    for (const [sessionId, session] of this.sessions.entries()) {
-      const { state } = session;
-      if (state.status !== GameStatus.PLAYING || !state.maze || state.pendingReset || state.maze.reached) {
-        continue;
-      }
-
-      const ghostTick = moveGhosts(state.maze);
-      const ghostMoves = ghostTick.moves;
-      const shouldBroadcastGhostState = ghostTick.chaseStateChanged || ghostMoves.length > 0;
-      if (!shouldBroadcastGhostState) {
-        continue;
-      }
-
-      if (ghostMoves.length) {
-        appendLog(state, {
-          event: 'ghost_move',
-          ghostMoves,
-        });
-      }
-
-      const ghostAtPlayer = findGhostAt(state.maze, state.maze.playerPos.row, state.maze.playerPos.col);
-      if (ghostAtPlayer) {
-        applyGhostHazard(state, ghostAtPlayer);
-        this._applyResetFeedback(sessionId, 'ghost', { row: ghostAtPlayer.row, col: ghostAtPlayer.col });
-        changed += 1;
-        continue;
-      }
-
-      this.broadcastState(sessionId);
-      changed += 1;
+  _advanceGhostTurn(sessionId, session) {
+    const { state } = session;
+    if (state.status !== GameStatus.PLAYING || !state.maze || state.pendingReset || state.maze.reached) {
+      return false;
     }
 
-    return changed;
+    const ghostTick = moveGhosts(state.maze);
+    if (ghostTick.moves.length) {
+      appendLog(state, {
+        event: 'ghost_move',
+        ghostMoves: ghostTick.moves,
+      });
+    }
+
+    const ghostAtPlayer = findGhostAt(state.maze, state.maze.playerPos.row, state.maze.playerPos.col);
+    if (ghostAtPlayer) {
+      applyGhostHazard(state, ghostAtPlayer);
+      this._applyResetFeedback(sessionId, 'ghost', { row: ghostAtPlayer.row, col: ghostAtPlayer.col });
+      return true;
+    }
+
+    return ghostTick.chaseStateChanged || ghostTick.moves.length > 0;
   }
 
   handleInput(sessionId, playerId, input) {
@@ -1519,6 +1519,12 @@ class SessionManager {
 
     const { state } = session;
     const controller = session.controllers.get(playerId);
+    if (Number.isSafeInteger(input?.clientInputSeq) && input.clientInputSeq >= 0) {
+      controller.lastProcessedInputSeq = Math.max(
+        Number.isSafeInteger(controller.lastProcessedInputSeq) ? controller.lastProcessedInputSeq : -1,
+        input.clientInputSeq
+      );
+    }
     const isTrainer = controller.isTrainer;
     const roles = getRoleForPlayer(state, playerId);
     const role = getPrimaryRole(roles);
@@ -1875,6 +1881,24 @@ class SessionManager {
       return false;
     }
 
+    const usesSequencedInput = Number.isSafeInteger(input.clientInputSeq) && input.clientInputSeq >= 0;
+    if (
+      usesSequencedInput &&
+      Number.isFinite(controller.lastAcceptedMoveAt) &&
+      ts - controller.lastAcceptedMoveAt < MOVE_INPUT_COOLDOWN_MS
+    ) {
+      appendLog(state, {
+        ts,
+        event: 'input_rejected',
+        playerId,
+        reason: 'input_cooldown',
+        dir: input.dir,
+      });
+      this.broadcastState(sessionId);
+      return false;
+    }
+    controller.lastAcceptedMoveAt = ts;
+
     const moveResult = movePlayer(maze, input.dir);
     const exitUnlocked = state.summary.keysCollected >= KEY_COUNT;
     const moveResultLabel = moveResult.result === 'goal' && !exitUnlocked ? 'ok' : moveResult.result;
@@ -1959,8 +1983,8 @@ class SessionManager {
       : false;
 
     if (hitHazard) {
-      applyHazardOutcome(state, controller, playerId, input, 'grid', position);
-      this._applyResetFeedback(sessionId, 'grid', position);
+      applyHazardOutcome(state, controller, playerId, input, 'skull', position);
+      this._applyResetFeedback(sessionId, 'skull', position);
       return true;
     }
 
@@ -2005,6 +2029,10 @@ class SessionManager {
       } else {
         maze.reached = false;
       }
+    }
+
+    if (this._advanceGhostTurn(sessionId, session) && state.pendingReset) {
+      return true;
     }
 
     this.broadcastState(sessionId);
@@ -2174,6 +2202,8 @@ class SessionManager {
       ? 'You walked into a wall!'
       : hazardType === 'ghost'
         ? 'A ghost found you!'
+        : hazardType === 'skull'
+          ? 'You stepped on a skull!'
         : 'You stepped on a hazard!';
 
     session.state.pendingReset = {
@@ -2193,7 +2223,7 @@ class SessionManager {
         return;
       }
       s.state.pendingReset = null;
-      if (s.state.summary.livesRemaining <= 0) {
+      if (!INFINITE_LIVES && s.state.summary.livesRemaining <= 0) {
         const phaseFlow = s.state.phaseFlow || createPhaseFlowState();
         if (s.state.status === GameStatus.PLAYING && phaseFlow.phaseType === 'gameplay') {
           const endedAt = Date.now();
