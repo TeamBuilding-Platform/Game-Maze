@@ -15,6 +15,17 @@ export function applyPredictedMove(position, direction, width, height) {
   }
 }
 
+export function getNextInputSequence(currentSequence, acknowledgedSequence) {
+  const current = Number.isSafeInteger(currentSequence) && currentSequence >= 0
+    ? currentSequence
+    : 0
+  const acknowledged = Number.isSafeInteger(acknowledgedSequence) && acknowledgedSequence >= 0
+    ? acknowledgedSequence
+    : 0
+
+  return Math.max(current, acknowledged) + 1
+}
+
 export function reconcilePredictedPosition(authoritativePosition, pendingMoves, acknowledgedSequence, width, height) {
   const remainingMoves = pendingMoves.filter(({ sequence }) => sequence > acknowledgedSequence)
   const predictedPosition = remainingMoves.reduce(
